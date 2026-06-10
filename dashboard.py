@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import requests
+import json
 
 st.set_page_config(layout="wide", page_title="产销协调")
 
@@ -9,12 +11,12 @@ st.markdown("""
 <style>
 /* 手机端适配 */
 @media (max-width: 768px) {
-    /* 缩小侧边栏宽度 */
+    /* 缩小侧边栏宽�?*/
     [data-testid="stSidebar"] {
         width: 250px !important;
     }
     
-    /* 调整主内容区域 */
+    /* 调整主内容区�?*/
     .main .block-container {
         padding: 1rem !important;
     }
@@ -24,7 +26,7 @@ st.markdown("""
         gap: 0.5rem !important;
     }
     
-    /* 调整垂直块间距 */
+    /* 调整垂直块间�?*/
     [data-testid="stVerticalBlock"] {
         gap: 0.5rem !important;
     }
@@ -40,7 +42,7 @@ st.markdown("""
         font-size: 14px !important;
     }
     
-    /* 调整选择器高度 */
+    /* 调整选择器高�?*/
     .stSelectbox > div > div {
         height: 40px !important;
     }
@@ -56,7 +58,7 @@ st.markdown("""
     }
 }
 
-/* 隐藏滚动条 */
+/* 隐藏滚动�?*/
 ::-webkit-scrollbar {
     height: 6px;
     width: 6px;
@@ -82,15 +84,14 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 初始化会话状态（仅在首次运行时初始化）
-if 'show_focus_report' not in st.session_state:
+# 初始化会话状态（仅在首次运行时初始化�?if 'show_focus_report' not in st.session_state:
     st.session_state.show_focus_report = False
 
 # 调试：打印状态（已注释）
 # st.write(f"Debug: show_focus_report = {st.session_state.show_focus_report}")
 
 def save_page_state(page_name):
-    if page_name == '需求分析':
+    if page_name == '需求分�?:
         state_keys = [
             'region', 'dept', 'project', 'product30', 'product20',
             'capacity', 'flavor', 'package', 'show_flavor_analysis',
@@ -101,7 +102,7 @@ def save_page_state(page_name):
             if key in st.session_state:
                 saved_state[key] = st.session_state[key]
         st.session_state['saved_demand_state'] = saved_state
-    elif page_name == '历史销量':
+    elif page_name == '历史销�?:
         state_keys = [
             'history_region', 'history_dept', 'history_project', 
             'history_product30', 'history_product20', 'history_flavor_new',
@@ -114,12 +115,12 @@ def save_page_state(page_name):
         st.session_state['saved_history_state'] = saved_state
 
 def restore_page_state(page_name):
-    if page_name == '需求分析':
+    if page_name == '需求分�?:
         if 'saved_demand_state' in st.session_state:
             saved_state = st.session_state['saved_demand_state']
             for key, value in saved_state.items():
                 st.session_state[key] = value
-    elif page_name == '历史销量':
+    elif page_name == '历史销�?:
         if 'saved_history_state' in st.session_state:
             saved_state = st.session_state['saved_history_state']
             for key, value in saved_state.items():
@@ -132,8 +133,8 @@ def load_data():
         df_hb = pd.read_excel('BW数据.xlsx', sheet_name='出货-河北-部别')
         df = pd.concat([df_tj, df_hb], ignore_index=True)
         df['需求量'] = df['需求量'].fillna(0)
-        df['去年同期销量'] = df['去年同期销量'].fillna(0)
-        df['预算销量'] = df['预算销量'].fillna(0)
+        df['去年同期销�?] = df['去年同期销�?].fillna(0)
+        df['预算销�?] = df['预算销�?].fillna(0)
         df['容量'] = df['容量'].astype(str)
         df['口味'] = df['口味'].astype(str)
         return df
@@ -160,15 +161,15 @@ def load_mappings(file_mod_time_bw=0, file_mod_time_rel=0):
         
         if '专案对应关系' in xls.sheet_names:
             project_df = pd.read_excel(xls, sheet_name='专案对应关系')
-            project_map = project_df.groupby('专案')['口味别'].apply(list).to_dict()
+            project_map = project_df.groupby('专案')['口味�?].apply(list).to_dict()
         
         if '3.0对应关系' in xls.sheet_names:
             product30_df = pd.read_excel(xls, sheet_name='3.0对应关系')
-            product30_map = product30_df.groupby('3.0新品')['口味别'].apply(list).to_dict()
+            product30_map = product30_df.groupby('3.0新品')['口味�?].apply(list).to_dict()
         
         if '2.0对应关系' in xls.sheet_names:
             product20_df = pd.read_excel(xls, sheet_name='2.0对应关系')
-            product20_map = product20_df.groupby('2.0产品')['口味别'].apply(list).to_dict()
+            product20_map = product20_df.groupby('2.0产品')['口味�?].apply(list).to_dict()
         
         if '物料对应关系' in xls.sheet_names:
             material_df = pd.read_excel(xls, sheet_name='物料对应关系')
@@ -180,7 +181,7 @@ def load_mappings(file_mod_time_bw=0, file_mod_time_rel=0):
                 if os.path.exists('对应关系.xlsx'):
                     print("找到对应关系.xlsx 文件")
                     xls2 = pd.ExcelFile('对应关系.xlsx')
-                    print(f"对应关系.xlsx 工作表列表: {xls2.sheet_names}")
+                    print(f"对应关系.xlsx 工作表列�? {xls2.sheet_names}")
                     
                     if '物料对应关系' in xls2.sheet_names:
                         print("找到【物料对应关系】工作表")
@@ -192,17 +193,17 @@ def load_mappings(file_mod_time_bw=0, file_mod_time_rel=0):
                             try:
                                 df = pd.read_excel(xls2, sheet_name=sheet)
                                 if '物料' in df.columns and '全国通用物料' in df.columns:
-                                    print(f"在 {sheet} 工作表中找到物料和全国通用物料列")
+                                    print(f"�?{sheet} 工作表中找到物料和全国通用物料�?)
                                     material_df = df
                                     material_map = process_material_data(material_df)
-                                    print(f"从对应关系.xlsx 的 {sheet} Sheet 读取物料对应关系")
+                                    print(f"从对应关�?xlsx �?{sheet} Sheet 读取物料对应关系")
                                     break
                             except Exception as sheet_e:
                                 print(f"读取 {sheet} 失败: {sheet_e}")
                 else:
-                    print("对应关系.xlsx 文件不存在")
+                    print("对应关系.xlsx 文件不存�?)
             except Exception as e:
-                print(f"从对应关系.xlsx 读取失败: {e}")
+                print(f"从对应关�?xlsx 读取失败: {e}")
                 import traceback
                 traceback.print_exc()
 
@@ -270,11 +271,11 @@ def filter_data(df, region, dept, months, flavor, capacity, package, project, pr
     
     filtered = df
     
-    if region != '全部' and '营业部' in filtered.columns:
-        filtered = filtered[filtered['营业部'].isin(region_dept_map.get(region, []))]
+    if region != '全部' and '营业�? in filtered.columns:
+        filtered = filtered[filtered['营业�?].isin(region_dept_map.get(region, []))]
     
-    if dept != '全部' and '营业部' in filtered.columns:
-        filtered = filtered[filtered['营业部'] == dept]
+    if dept != '全部' and '营业�? in filtered.columns:
+        filtered = filtered[filtered['营业�?] == dept]
     
     if isinstance(months, list) and len(months) > 0 and '月份' in filtered.columns:
         filtered = filtered[filtered['月份'].isin(months)]
@@ -333,8 +334,8 @@ def filter_data(df, region, dept, months, flavor, capacity, package, project, pr
         if package_to_materials and package in package_to_materials and material_col and material_col in filtered.columns:
             materials_to_keep = package_to_materials[package]
             filtered = filtered[filtered[material_col].astype(str).str.strip().isin(materials_to_keep)]
-        elif '内包装' in filtered.columns:
-            filtered = filtered[filtered['内包装'] == package]
+        elif '内包�? in filtered.columns:
+            filtered = filtered[filtered['内包�?] == package]
     
     return filtered
 
@@ -346,15 +347,15 @@ def process_material_data(material_df):
     
     if '口味' in material_df.columns:
         flavor_list = [str(f).strip() for f in material_df['口味'].dropna().unique() if str(f).strip()]
-        print(f"从物料对应关系提取口味: {len(flavor_list)} 个")
+        print(f"从物料对应关系提取口�? {len(flavor_list)} �?)
     
     if '容量' in material_df.columns:
         capacity_list = [str(c).strip() for c in material_df['容量'].dropna().unique() if str(c).strip()]
-        print(f"从物料对应关系提取容量: {len(capacity_list)} 个")
+        print(f"从物料对应关系提取容�? {len(capacity_list)} �?)
     
-    if '内包装' in material_df.columns:
-        package_list = [str(p).strip() for p in material_df['内包装'].dropna().unique() if str(p).strip()]
-        print(f"从物料对应关系提取内包装: {len(package_list)} 个")
+    if '内包�? in material_df.columns:
+        package_list = [str(p).strip() for p in material_df['内包�?].dropna().unique() if str(p).strip()]
+        print(f"从物料对应关系提取内包装: {len(package_list)} �?)
     
     material_map = {
         'flavors': sorted(flavor_list),
@@ -381,8 +382,8 @@ def process_material_data(material_df):
                 universal_to_attrs[universal]['flavors'].add(str(row['口味']).strip())
             if pd.notna(row.get('容量')):
                 universal_to_attrs[universal]['capacities'].add(str(row['容量']).strip())
-            if pd.notna(row.get('内包装')):
-                universal_to_attrs[universal]['packages'].add(str(row['内包装']).strip())
+            if pd.notna(row.get('内包�?)):
+                universal_to_attrs[universal]['packages'].add(str(row['内包�?]).strip())
         
         for key in universal_to_attrs:
             universal_to_attrs[key]['flavors'] = sorted(list(universal_to_attrs[key]['flavors']))
@@ -393,13 +394,13 @@ def process_material_data(material_df):
         material_map['universal_to_attrs'] = universal_to_attrs
         print(f"物料映射加载成功: {len(material_to_universal)} 物料 -> {len(universal_to_attrs)} 通用物料")
     else:
-        print("物料对应关系表缺少'物料'或'全国通用物料'列")
+        print("物料对应关系表缺�?物料'�?全国通用物料'�?)
     
     return material_map
 
 REGION_DEPT_MAP = {
-    '天津行销区域': ['天津地区部', '津东经销部', '津北经销部', '廊坊经销部', '津西经销部', '天津OT处', '天津餐饮处', '天津新零售', '天津行销公司特营处'],
-    '河北行销区域': ['河北地区部', '冀东营业部', '冀西营业部', '冀南营业部', '冀北营业部', '石家庄营业部', '唐山营业部', '石家庄餐饮处', '河北行销公司特营处']
+    '天津行销区域': ['天津地区�?, '津东经销�?, '津北经销�?, '廊坊经销�?, '津西经销�?, '天津OT�?, '天津餐饮�?, '天津新零�?, '天津行销公司特营�?],
+    '河北行销区域': ['河北地区�?, '冀东营业部', '冀西营业部', '冀南营业部', '冀北营业部', '石家庄营业部', '唐山营业�?, '石家庄餐饮处', '河北行销公司特营�?]
 }
 
 df = load_data()
@@ -408,7 +409,7 @@ rel_mod_time = get_file_mod_time('对应关系.xlsx')
 project_map, product30_map, product20_map, material_map = load_mappings(bw_mod_time, rel_mod_time)
 
 if 'current_page' not in st.session_state:
-    st.session_state.current_page = '需求分析'
+    st.session_state.current_page = '需求分�?
 
 with st.sidebar:
     st.markdown("""
@@ -496,31 +497,31 @@ with st.sidebar:
 
     st.markdown('<div class="menu-section-label">功能菜单</div>', unsafe_allow_html=True)
     
-    if st.session_state.current_page == '需求分析':
+    if st.session_state.current_page == '需求分�?:
         st.markdown('<style>[data-testid="stSidebar"] [data-testid="baseButton-secondary-btn_demand"] { background-color: #eff6ff !important; color: #1e40af !important; font-weight: 600; }</style>', unsafe_allow_html=True)
-    if st.button('需求分析看板（BW）', key='btn_demand', use_container_width=True):
+    if st.button('需求分析看板（BW�?, key='btn_demand', use_container_width=True):
         save_page_state(st.session_state.current_page)
-        restore_page_state('需求分析')
-        st.session_state.current_page = '需求分析'
+        restore_page_state('需求分�?)
+        st.session_state.current_page = '需求分�?
         if 'show_flavor_analysis' in st.session_state:
             st.session_state.show_flavor_analysis = False
     
-    if st.session_state.current_page == '历史销量':
+    if st.session_state.current_page == '历史销�?:
         st.markdown('<style>[data-testid="stSidebar"] [data-testid="baseButton-secondary-btn_history"] { background-color: #eff6ff !important; color: #1e40af !important; font-weight: 600; }</style>', unsafe_allow_html=True)
-    if st.button('历史销量', key='btn_history', use_container_width=True):
+    if st.button('历史销�?, key='btn_history', use_container_width=True):
         save_page_state(st.session_state.current_page)
-        restore_page_state('历史销量')
-        st.session_state.current_page = '历史销量'
+        restore_page_state('历史销�?)
+        st.session_state.current_page = '历史销�?
     
-    if st.session_state.current_page == '产量一览':
+    if st.session_state.current_page == '产量一�?:
         st.markdown('<style>[data-testid="stSidebar"] [data-testid="baseButton-secondary-btn_output"] { background-color: #eff6ff !important; color: #1e40af !important; font-weight: 600; }</style>', unsafe_allow_html=True)
-    if st.button('产量一览', key='btn_output', use_container_width=True):
-        st.session_state.current_page = '产量一览'
+    if st.button('产量一�?, key='btn_output', use_container_width=True):
+        st.session_state.current_page = '产量一�?
     
-    if st.session_state.current_page == '营业额分析':
+    if st.session_state.current_page == '营业额分�?:
         st.markdown('<style>[data-testid="stSidebar"] [data-testid="baseButton-secondary-btn_revenue"] { background-color: #eff6ff !important; color: #1e40af !important; font-weight: 600; }</style>', unsafe_allow_html=True)
-    if st.button('营业额分析', key='btn_revenue', use_container_width=True):
-        st.session_state.current_page = '营业额分析'
+    if st.button('营业额分�?, key='btn_revenue', use_container_width=True):
+        st.session_state.current_page = '营业额分�?
     
     if st.session_state.current_page == '物料对应关系':
         st.markdown('<style>[data-testid="stSidebar"] [data-testid="baseButton-secondary-btn_material"] { background-color: #eff6ff !important; color: #1e40af !important; font-weight: 600; }</style>', unsafe_allow_html=True)
@@ -531,7 +532,7 @@ with st.sidebar:
     
     st.markdown('<div class="menu-section-label">设置</div>', unsafe_allow_html=True)
     st.button('系统设置', use_container_width=True, key='btn_settings')
-    st.button('退出登录', use_container_width=True, key='btn_logout')
+    st.button('退出登�?, use_container_width=True, key='btn_logout')
 
 st.markdown("""
     <style>
@@ -862,7 +863,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-if st.session_state.current_page == '需求分析':
+if st.session_state.current_page == '需求分�?:
     import os
     import datetime
     
@@ -874,7 +875,7 @@ if st.session_state.current_page == '需求分析':
     
     st.markdown("""
         <div class='header-card'>
-            <div class='header-title'>需求分析看板（BW）</div>
+            <div class='header-title'>需求分析看板（BW�?/div>
             <div class='header-subtitle'>实时数据分析与可视化平台 | 基于出货-天津/河北部别数据</div>
             <div style='font-size: 12px; color: rgba(255, 255, 255, 0.7); margin-top: 8px;'>数据更新时间: {update_time}</div>
         </div>
@@ -911,25 +912,25 @@ if st.session_state.current_page == '需求分析':
                 load_data.clear()
                 load_mappings.clear()
                 
-                st.success('✅ 数据上传成功！页面将自动刷新...')
+                st.success('�?数据上传成功！页面将自动刷新...')
                 st.rerun()
             except Exception as e:
-                st.error(f'❌ 上传失败: {str(e)}')
+                st.error(f'�?上传失败: {str(e)}')
 
     col1, col2, col3, col4, col5, col6, col7, col8, col9, col10 = st.columns([0.8, 0.8, 0.9, 0.9, 0.9, 0.8, 1.0, 0.7, 0.9, 0.9])
 
     with col1:
-        region = st.selectbox('行销区域别', ['全部'] + list(REGION_DEPT_MAP.keys()), key='region')
+        region = st.selectbox('行销区域�?, ['全部'] + list(REGION_DEPT_MAP.keys()), key='region')
 
     with col2:
         if region == '全部':
             all_depts = []
             for depts in REGION_DEPT_MAP.values():
                 all_depts.extend(depts)
-            dept_options = ['全部'] + list(set(all_depts) & set(df['营业部'].unique()))
+            dept_options = ['全部'] + list(set(all_depts) & set(df['营业�?].unique()))
         else:
-            dept_options = ['全部'] + [d for d in REGION_DEPT_MAP[region] if d in df['营业部'].unique()]
-        dept = st.selectbox('营业部', dept_options, key='dept')
+            dept_options = ['全部'] + [d for d in REGION_DEPT_MAP[region] if d in df['营业�?].unique()]
+        dept = st.selectbox('营业�?, dept_options, key='dept')
 
     with col3:
         project_options = ['全部'] + list(project_map.keys())
@@ -945,9 +946,9 @@ if st.session_state.current_page == '需求分析':
 
     filtered_for_flavor = df.copy()
     if region != '全部':
-        filtered_for_flavor = filtered_for_flavor[filtered_for_flavor['营业部'].isin(REGION_DEPT_MAP[region])]
+        filtered_for_flavor = filtered_for_flavor[filtered_for_flavor['营业�?].isin(REGION_DEPT_MAP[region])]
     if dept != '全部':
-        filtered_for_flavor = filtered_for_flavor[filtered_for_flavor['营业部'] == dept]
+        filtered_for_flavor = filtered_for_flavor[filtered_for_flavor['营业�?] == dept]
 
     material_flavors = material_map.get('flavors', [])
     material_capacities = material_map.get('capacities', [])
@@ -959,14 +960,14 @@ if st.session_state.current_page == '需求分析':
         flavor_stats = filtered_for_flavor.groupby('口味').agg({
             '需求量': 'sum',
             '月累排单': 'sum',
-            '去年同期销量': 'sum',
-            '预算销量': 'sum'
+            '去年同期销�?: 'sum',
+            '预算销�?: 'sum'
         }).reset_index()
         available_flavors = flavor_stats[
             (flavor_stats['需求量'] > 0) | 
             (flavor_stats['月累排单'] > 0) | 
-            (flavor_stats['去年同期销量'] > 0) | 
-            (flavor_stats['预算销量'] > 0)
+            (flavor_stats['去年同期销�?] > 0) | 
+            (flavor_stats['预算销�?] > 0)
         ]['口味'].tolist()
     
     if project != '全部':
@@ -1011,12 +1012,12 @@ if st.session_state.current_page == '需求分析':
                     package_set.update(packages)
             available_packages = ['全部'] + sorted([p for p in package_set if p])
         elif material_packages:
-            available_packages = ['全部'] + sorted(set(filtered_for_flavor.get('内包装', []).unique()) & set(material_packages))
+            available_packages = ['全部'] + sorted(set(filtered_for_flavor.get('内包�?, []).unique()) & set(material_packages))
         else:
-            available_packages = ['全部'] + sorted(filtered_for_flavor.get('内包装', []).unique())
+            available_packages = ['全部'] + sorted(filtered_for_flavor.get('内包�?, []).unique())
         if 'package' in st.session_state and st.session_state['package'] != '全部' and st.session_state['package'] not in available_packages:
             st.session_state['package'] = '全部'
-        package = st.selectbox('内包装', available_packages, key='package')
+        package = st.selectbox('内包�?, available_packages, key='package')
 
     def check_flavor_and_show_analysis():
         if st.session_state.get('flavor', '全部') == '全部':
@@ -1034,7 +1035,7 @@ if st.session_state.current_page == '需求分析':
 
     with col10:
         st.markdown('<div style="margin-top: 25px;"></div>', unsafe_allow_html=True)
-        st.button('🗑️ 清除筛选', key='btn_clear_filters', use_container_width=True, on_click=lambda: st.session_state.update({'clear_filters': True}))
+        st.button('🗑�?清除筛�?, key='btn_clear_filters', use_container_width=True, on_click=lambda: st.session_state.update({'clear_filters': True}))
 
     st.session_state['current_analysis_project'] = project
     st.session_state['current_analysis_product30'] = product30
@@ -1043,10 +1044,10 @@ if st.session_state.current_page == '需求分析':
     filtered_df = df.copy()
 
     if region != '全部':
-        filtered_df = filtered_df[filtered_df['营业部'].isin(REGION_DEPT_MAP[region])]
+        filtered_df = filtered_df[filtered_df['营业�?].isin(REGION_DEPT_MAP[region])]
 
     if dept != '全部':
-        filtered_df = filtered_df[filtered_df['营业部'] == dept]
+        filtered_df = filtered_df[filtered_df['营业�?] == dept]
 
     if project != '全部':
         filtered_df = filtered_df[filtered_df['口味'].isin(project_map[project])]
@@ -1064,8 +1065,8 @@ if st.session_state.current_page == '需求分析':
         filtered_df = filtered_df[filtered_df['口味'] == flavor]
 
     total_demand = filtered_df['需求量'].sum()
-    total_budget = filtered_df['预算销量'].sum()
-    total_last_year = filtered_df['去年同期销量'].sum()
+    total_budget = filtered_df['预算销�?].sum()
+    total_last_year = filtered_df['去年同期销�?].sum()
     monthly_order = filtered_df['月累排单'].sum()
     avg_budget_achievement = (monthly_order / total_budget * 100) if total_budget > 0 else 0
     avg_growth = ((total_demand - total_last_year) / total_last_year * 100) if total_last_year > 0 else 0
@@ -1075,7 +1076,7 @@ if st.session_state.current_page == '需求分析':
 
     growth_card_class = 'metric-card-red' if avg_growth < 0 else 'metric-card-green'
     growth_value_class = 'metric-value-red' if avg_growth < 0 else 'metric-value-green'
-    growth_trend_icon = '↓' if avg_growth < 0 else '↑'
+    growth_trend_icon = '�? if avg_growth < 0 else '�?
     growth_trend_color = '#dc2626' if avg_growth < 0 else '#059669'
     
     st.markdown(f"""
@@ -1086,15 +1087,15 @@ if st.session_state.current_page == '需求分析':
             </div>
             <div class='metric-card-blue'>
                 <div class='metric-value-blue'>{int(total_budget):,}</div>
-                <div class='metric-label'>总预算销量</div>
+                <div class='metric-label'>总预算销�?/div>
             </div>
             <div class='metric-card-orange'>
                 <div class='metric-value-orange'>{avg_budget_achievement:.1f}%</div>
-                <div class='metric-label'>预算达成率</div>
+                <div class='metric-label'>预算达成�?/div>
             </div>
             <div class='{growth_card_class}'>
                 <div class='{growth_value_class}'>{avg_growth:.1f}%</div>
-                <div class='metric-label'>较同期成长</div>
+                <div class='metric-label'>较同期成�?/div>
                 <div class='metric-trend' style='color: {growth_trend_color};'>
                     <span style='margin-right: 4px;'>{growth_trend_icon}</span>
                     {growth_trend_color == '#dc2626' and '同比下降' or '同比增长'}
@@ -1106,7 +1107,7 @@ if st.session_state.current_page == '需求分析':
             </div>
             <div class='metric-card-orange'>
                 <div class='metric-value-orange'>{monthly_order_achievement:.1f}%</div>
-                <div class='metric-label'>月累排单达成率</div>
+                <div class='metric-label'>月累排单达成�?/div>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -1120,16 +1121,16 @@ if st.session_state.current_page == '需求分析':
         if selected_cap:
             dept_filtered_df = dept_filtered_df[dept_filtered_df['容量'].astype(str) == str(selected_cap)]
         
-        dept_df = dept_filtered_df.groupby('营业部').agg({
+        dept_df = dept_filtered_df.groupby('营业�?).agg({
             '需求量': 'sum',
-            '去年同期销量': 'sum',
-            '预算销量': 'sum',
+            '去年同期销�?: 'sum',
+            '预算销�?: 'sum',
             '月累排单': 'sum',
-            '月累销量': 'sum'
+            '月累销�?: 'sum'
         }).reset_index()
         dept_df = dept_df.sort_values('需求量', ascending=False)
         dept_df['排单需求达成率'] = dept_df.apply(lambda row: 0 if (row['需求量'] == 0 or row['月累排单'] == 0) else (row['月累排单'] / row['需求量'] * 100), axis=1)
-        dept_df['排单预算达成率'] = dept_df.apply(lambda row: 0 if (row['预算销量'] == 0 or row['月累排单'] == 0) else (row['月累排单'] / row['预算销量'] * 100), axis=1)
+        dept_df['排单预算达成�?] = dept_df.apply(lambda row: 0 if (row['预算销�?] == 0 or row['月累排单'] == 0) else (row['月累排单'] / row['预算销�?] * 100), axis=1)
 
         st.markdown("""
             <style>
@@ -1247,7 +1248,7 @@ if st.session_state.current_page == '需求分析':
         """, unsafe_allow_html=True)
 
         avg_demand_rate = dept_df['排单需求达成率'].mean()
-        avg_budget_rate = dept_df['排单预算达成率'].mean()
+        avg_budget_rate = dept_df['排单预算达成�?].mean()
         
         if pd.isna(avg_demand_rate):
             avg_demand_rate = 0
@@ -1255,18 +1256,17 @@ if st.session_state.current_page == '需求分析':
             avg_budget_rate = 0
         
         low_demand_depts = dept_df[dept_df['排单需求达成率'] < avg_demand_rate]
-        low_budget_depts = dept_df[dept_df['排单预算达成率'] < avg_budget_rate]
+        low_budget_depts = dept_df[dept_df['排单预算达成�?] < avg_budget_rate]
         
         total_demand = filtered_df['需求量'].sum()
         total_order = filtered_df['月累排单'].sum()
         
-        # 创建表格HTML（不包含按钮）
-        table_html = "<div class='section-card' style='margin-top: -20px;'>"
-        table_html += "<div class='section-title'>需求分析（营业部别）</div>"
+        # 创建表格HTML（不包含按钮�?        table_html = "<div class='section-card' style='margin-top: -20px;'>"
+        table_html += "<div class='section-title'>需求分析（营业部别�?/div>"
         table_html += "<div style='overflow-x: auto; height: 595px; overflow-y: auto; position: relative;'>"
         table_html += "<table class='custom-table'>"
         table_html += "<thead><tr>"
-        table_html += "<th>营业部</th><th>需求量</th><th>预算<br>销量</th><th>同期<br>销量</th><th>月累排单</th><th>月累<br>销量</th><th>排单需求<br>达成率</th><th>排单预算<br>达成率</th>"
+        table_html += "<th>营业�?/th><th>需求量</th><th>预算<br>销�?/th><th>同期<br>销�?/th><th>月累排单</th><th>月累<br>销�?/th><th>排单需�?br>达成�?/th><th>排单预算<br>达成�?/th>"
         table_html += "</tr></thead><tbody>"
 
         def get_rate_style(rate):
@@ -1281,7 +1281,7 @@ if st.session_state.current_page == '需求分析':
         
         for _, row in dept_df.iterrows():
             dr_rate = row['排单需求达成率']
-            db_rate = row['排单预算达成率']
+            db_rate = row['排单预算达成�?]
             
             dr_style = get_rate_style(dr_rate)
             db_style = get_rate_style(db_rate)
@@ -1301,15 +1301,15 @@ if st.session_state.current_page == '需求分析':
             db_bar_color = '#1e5a1e' if db_rate >= 100 else '#86efac' if db_rate >= 80 else '#e67e22' if db_rate >= 60 else '#c00000'
             
             selected_dept = st.session_state.get('selected_dept', '')
-            row_class = "selected-row" if row['营业部'] == selected_dept else ""
+            row_class = "selected-row" if row['营业�?] == selected_dept else ""
             
-            table_html += f"<tr class='clickable-row {row_class}' style='cursor: pointer;' onclick=\"document.getElementById('select-dept-{row['营业部'].replace(' ', '-')}').click()\">"
-            table_html += f"<td>{row['营业部']}</td>"
+            table_html += f"<tr class='clickable-row {row_class}' style='cursor: pointer;' onclick=\"document.getElementById('select-dept-{row['营业�?].replace(' ', '-')}').click()\">"
+            table_html += f"<td>{row['营业�?]}</td>"
             table_html += f"<td>{row['需求量']:.2f}</td>"
-            table_html += f"<td>{row['预算销量']:.2f}</td>"
-            table_html += f"<td>{row['去年同期销量']:.2f}</td>"
+            table_html += f"<td>{row['预算销�?]:.2f}</td>"
+            table_html += f"<td>{row['去年同期销�?]:.2f}</td>"
             table_html += f"<td>{row['月累排单']:.2f}</td>"
-            table_html += f"<td>{row['月累销量']:.2f}</td>"
+            table_html += f"<td>{row['月累销�?]:.2f}</td>"
             table_html += f"<td style='padding: 8px;'>"
             table_html += f"<div style='font-weight: {dr_style['weight']}; color: {dr_style['text']}; margin-bottom: 4px;'>{dr_label}</div>"
             table_html += f"<div style='width: 100%; height: 8px; background-color: #e5e7eb; border-radius: 4px; overflow: hidden;'>"
@@ -1356,7 +1356,7 @@ if st.session_state.current_page == '需求分析':
             """, unsafe_allow_html=True)
             
             total_depts = len(dept_df)
-            abnormal_count = sum(1 for _, row in dept_df.iterrows() if (row['排单需求达成率'] > 0 and row['排单需求达成率'] < avg_demand_rate) or (row['排单预算达成率'] > 0 and row['排单预算达成率'] < avg_budget_rate))
+            abnormal_count = sum(1 for _, row in dept_df.iterrows() if (row['排单需求达成率'] > 0 and row['排单需求达成率'] < avg_demand_rate) or (row['排单预算达成�?] > 0 and row['排单预算达成�?] < avg_budget_rate))
             
             # 直接显示模态框内容
             st.markdown("""
@@ -1365,7 +1365,7 @@ if st.session_state.current_page == '需求分析':
                     <div style="padding: 20px 24px; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; display: flex; justify-content: space-between; align-items: center; border-radius: 12px 12px 0 0;">
                         <div>
                             <div style="font-size: 18px; font-weight: 600;">🔍 智能异常排查报告</div>
-                            <div style="font-size: 12px; opacity: 0.8; margin-top: 4px;">当前筛选覆盖 """ + str(total_depts) + """ 个营业部，发现 """ + str(abnormal_count) + """ 个异常营业部</div>
+                            <div style="font-size: 12px; opacity: 0.8; margin-top: 4px;">当前筛选覆�?""" + str(total_depts) + """ 个营业部，发�?""" + str(abnormal_count) + """ 个异常营业部</div>
                         </div>
                     </div>
                     <div style="padding: 24px;">
@@ -1373,10 +1373,10 @@ if st.session_state.current_page == '需求分析':
                         <table style="width:100%;border-collapse:collapse;margin-top:16px;border-radius:8px;overflow:hidden;">
                             <thead>
                                 <tr style="background-color:#f8fafc;">
-                                    <th style="padding:12px 14px;text-align:left;font-size:11px;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">营业部名称</th>
+                                    <th style="padding:12px 14px;text-align:left;font-size:11px;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">营业部名�?/th>
                                     <th style="padding:12px 14px;text-align:left;font-size:11px;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">排单需求达成率(%)</th>
                                     <th style="padding:12px 14px;text-align:left;font-size:11px;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">需求达成率vs平均</th>
-                                    <th style="padding:12px 14px;text-align:left;font-size:11px;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">排单预算达成率(%)</th>
+                                    <th style="padding:12px 14px;text-align:left;font-size:11px;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">排单预算达成�?%)</th>
                                     <th style="padding:12px 14px;text-align:left;font-size:11px;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">预算达成率vs平均</th>
                                     <th style="padding:12px 14px;text-align:left;font-size:11px;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">异常类型</th>
                                 </tr>
@@ -1390,16 +1390,16 @@ if st.session_state.current_page == '需求分析':
             
             for _, row in dept_df.iterrows():
                 demand_diff = row['排单需求达成率'] - avg_demand_rate
-                budget_diff = row['排单预算达成率'] - avg_budget_rate
+                budget_diff = row['排单预算达成�?] - avg_budget_rate
                 demand_below = row['排单需求达成率'] > 0 and row['排单需求达成率'] < avg_demand_rate
-                budget_below = row['排单预算达成率'] > 0 and row['排单预算达成率'] < avg_budget_rate
+                budget_below = row['排单预算达成�?] > 0 and row['排单预算达成�?] < avg_budget_rate
                 
                 if demand_below or budget_below:
                     has_abnormal = True
                     abnormal_depts.append({
-                        '营业部': row['营业部'],
+                        '营业�?: row['营业�?],
                         '排单需求达成率': row['排单需求达成率'],
-                        '排单预算达成率': row['排单预算达成率'],
+                        '排单预算达成�?: row['排单预算达成�?],
                         'demand_diff': demand_diff,
                         'budget_diff': budget_diff,
                         'demand_below': demand_below,
@@ -1412,26 +1412,26 @@ if st.session_state.current_page == '需求分析':
                     demand_diff = dept_data['demand_diff']
                     budget_diff = dept_data['budget_diff']
                     
-                    abnormal_type = '两者均低' if (demand_below and budget_below) else ('需求达成率低' if demand_below else '预算达成率低')
+                    abnormal_type = '两者均�? if (demand_below and budget_below) else ('需求达成率�? if demand_below else '预算达成率低')
                     demand_color = '#ef4444' if demand_below else '#374151'
                     budget_color = '#ef4444' if budget_below else '#374151'
-                    demand_arrow = '↓' if demand_below else ''
-                    budget_arrow = '↓' if budget_below else ''
-                    type_color = '#ef4444' if abnormal_type == '两者均低' else ('#f59e0b' if abnormal_type == '需求达成率低' else '#3b82f6')
+                    demand_arrow = '�? if demand_below else ''
+                    budget_arrow = '�? if budget_below else ''
+                    type_color = '#ef4444' if abnormal_type == '两者均�? else ('#f59e0b' if abnormal_type == '需求达成率�? else '#3b82f6')
                     
                     st.markdown(f"""
                     <tr style="background-color:#fefefe;">
-                        <td style="padding:12px 14px;font-size:12px;color:#374151;border-bottom:1px solid #f1f5f9;font-weight:500;">{dept_data['营业部']}</td>
+                        <td style="padding:12px 14px;font-size:12px;color:#374151;border-bottom:1px solid #f1f5f9;font-weight:500;">{dept_data['营业�?]}</td>
                         <td style="padding:12px 14px;font-size:12px;color:{demand_color};border-bottom:1px solid #f1f5f9;font-weight:{600 if demand_below else 400};">{dept_data['排单需求达成率']:.1f}</td>
                         <td style="padding:12px 14px;font-size:12px;color:{demand_color};border-bottom:1px solid #f1f5f9;font-weight:{600 if demand_below else 400};">{demand_arrow} {abs(demand_diff):.1f}%</td>
-                        <td style="padding:12px 14px;font-size:12px;color:{budsetColor};border-bottom:1px solid #f1f5f9;font-weight:{600 if budget_below else 400};">{dept_data['排单预算达成率']:.1f}</td>
+                        <td style="padding:12px 14px;font-size:12px;color:{budsetColor};border-bottom:1px solid #f1f5f9;font-weight:{600 if budget_below else 400};">{dept_data['排单预算达成�?]:.1f}</td>
                         <td style="padding:12px 14px;font-size:12px;color:{budsetColor};border-bottom:1px solid #f1f5f9;font-weight:{600 if budget_below else 400};">{budget_arrow} {abs(budget_diff):.1f}%</td>
                         <td style="padding:12px 14px;font-size:12px;color:{type_color};border-bottom:1px solid #f1f5f9;font-weight:600;">{abnormal_type}</td>
                     </tr>
                     """, unsafe_allow_html=True)
             
             if not has_abnormal:
-                st.markdown('<tr><td colspan="6" style="padding:20px;text-align:center;color:#10b981;font-weight:500;">✓ 未发现异常营业部</td></tr>', unsafe_allow_html=True)
+                st.markdown('<tr><td colspan="6" style="padding:20px;text-align:center;color:#10b981;font-weight:500;">�?未发现异常营业部</td></tr>', unsafe_allow_html=True)
             
             st.markdown("""
                             </tbody>
@@ -1443,12 +1443,12 @@ if st.session_state.current_page == '需求分析':
             # 详细差异分析
             for _, row in dept_df.iterrows():
                 demand_below = row['排单需求达成率'] > 0 and row['排单需求达成率'] < avg_demand_rate
-                budget_below = row['排单预算达成率'] > 0 and row['排单预算达成率'] < avg_budget_rate
+                budget_below = row['排单预算达成�?] > 0 and row['排单预算达成�?] < avg_budget_rate
                 
                 if demand_below or budget_below:
-                    dept_name = row['营业部']
+                    dept_name = row['营业�?]
                     
-                    dept_filtered = filtered_df[filtered_df['营业部'] == dept_name]
+                    dept_filtered = filtered_df[filtered_df['营业�?] == dept_name]
                     
                     flavor_diff = {}
                     flavors = dept_filtered['口味'].unique()
@@ -1488,7 +1488,7 @@ if st.session_state.current_page == '需求分析':
                     capacity_html = ''
                     for cap, diff in capacity_diff.items():
                         is_max = cap == max_capacity
-                        warning = '❗' if abs(diff) > 200 else ''
+                        warning = '�? if abs(diff) > 200 else ''
                         diff_color = '#ef4444' if diff < 0 else '#10b981'
                         sign = '+' if diff > 0 else ''
                         capacity_html += f"""
@@ -1522,7 +1522,7 @@ if st.session_state.current_page == '需求分析':
             st.markdown("""
                         <div style="font-size: 16px; font-weight: 600; color: #334155; margin-bottom: 16px; padding-left: 12px; border-left: 4px solid #f59e0b; margin-top: 24px;">容量别供需情况</div>
                         <div style="background: #fff3cd; border: 1px solid #ffeeba; border-radius: 8px; padding: 14px; color: #856404; font-size: 13px;">
-                            ⚠️ 容量别供需情况：需求""" + f"{total_demand:.2f}" + """ vs 排单""" + f"{total_order:.2f}" + """
+                            ⚠️ 容量别供需情况：需�?"" + f"{total_demand:.2f}" + """ vs 排单""" + f"{total_order:.2f}" + """
                         </div>
                     </div>
                     
@@ -1536,7 +1536,7 @@ if st.session_state.current_page == '需求分析':
     with col_right:
         card_container = st.container(border=True)
         with card_container:
-            st.markdown("<div class='section-title'>需求与排单对比（口味别）</div>", unsafe_allow_html=True)
+            st.markdown("<div class='section-title'>需求与排单对比（口味别�?/div>", unsafe_allow_html=True)
             monthly_order_flavor_df = filtered_df.groupby('口味').agg({
                 '月累排单': 'sum',
                 '需求量': 'sum'
@@ -1592,7 +1592,7 @@ if st.session_state.current_page == '需求分析':
         
         card_container = st.container(border=True)
         with card_container:
-            st.markdown("<div class='section-title'>需求与排单（容量别）</div>", unsafe_allow_html=True)
+            st.markdown("<div class='section-title'>需求与排单（容量别�?/div>", unsafe_allow_html=True)
             if '容量' in filtered_df.columns:
                 capacity_df = filtered_df.groupby('容量').agg({
                     '月累排单': 'sum',
@@ -1601,8 +1601,8 @@ if st.session_state.current_page == '需求分析':
                 
                 capacity_df = capacity_df.sort_values('需求量', ascending=False)
                 
-                capacity_df['差异量'] = capacity_df['需求量'] - capacity_df['月累排单']
-                capacity_df['差异百分比'] = (capacity_df['差异量'] / capacity_df['需求量'] * 100).apply(lambda x: f'{x:+.1f}%')
+                capacity_df['差异�?] = capacity_df['需求量'] - capacity_df['月累排单']
+                capacity_df['差异百分�?] = (capacity_df['差异�?] / capacity_df['需求量'] * 100).apply(lambda x: f'{x:+.1f}%')
                 
                 import plotly.graph_objects as go
                 fig_capacity = go.Figure()
@@ -1636,13 +1636,13 @@ if st.session_state.current_page == '需求分析':
                 offset = max_value * 0.25 if max_value > 0 else 12
                 
                 for _, row in capacity_df.iterrows():
-                    diff_color = '#dc2626' if row['差异量'] > 0 else '#059669'
-                    diff_text = f'Δ{row["差异量"]:+.0f}'
+                    diff_color = '#dc2626' if row['差异�?] > 0 else '#059669'
+                    diff_text = f'Δ{row["差异�?]:+.0f}'
                     fig_capacity.add_trace(go.Scatter(
                         x=[row['容量']],
                         y=[max(row['需求量'], row['月累排单']) + offset],
                         mode='text',
-                        name='差异量',
+                        name='差异�?,
                         text=[diff_text],
                         textposition='bottom center',
                         textfont=dict(color=diff_color, size=14, weight='bold'),
@@ -1652,7 +1652,7 @@ if st.session_state.current_page == '需求分析':
                 fig_capacity.update_layout(
                     plot_bgcolor='white',
                     paper_bgcolor='white',
-                    yaxis=dict(showgrid=True, gridcolor='#e2e8f0', tickfont=dict(size=10), title='量'),
+                    yaxis=dict(showgrid=True, gridcolor='#e2e8f0', tickfont=dict(size=10), title='�?),
                     xaxis=dict(showgrid=False, tickfont=dict(size=10), type='category', categoryorder='array', categoryarray=capacity_df['容量'].tolist()),
                     margin=dict(l=40, r=40, t=40, b=40),
                     height=260,
@@ -1732,7 +1732,7 @@ if st.session_state.current_page == '需求分析':
                         </div>
                     """, unsafe_allow_html=True)
                 with btn_col:
-                    if st.button("清除筛选", key='clear_capacity', use_container_width=True):
+                    if st.button("清除筛�?, key='clear_capacity', use_container_width=True):
                         st.session_state['selected_capacity'] = None
                         st.rerun()
             else:
@@ -1744,24 +1744,24 @@ if st.session_state.current_page == '需求分析':
         capacity_df = filtered_df.groupby('容量').agg({
             '需求量': 'sum',
             '月累排单': 'sum',
-            '去年同期销量': 'sum',
-            '预算销量': 'sum'
+            '去年同期销�?: 'sum',
+            '预算销�?: 'sum'
         }).reset_index()
         capacity_df = capacity_df.sort_values('需求量', ascending=False)
-        capacity_df['预算达成'] = capacity_df.apply(lambda row: 0 if (row['预算销量'] == 0 or row['需求量'] == 0) else (row['需求量'] / row['预算销量'] * 100), axis=1)
-        capacity_df['较同期成长'] = capacity_df.apply(lambda row: 0 if (row['去年同期销量'] == 0 or row['需求量'] == 0) else ((row['需求量'] - row['去年同期销量']) / row['去年同期销量'] * 100), axis=1)
+        capacity_df['预算达成'] = capacity_df.apply(lambda row: 0 if (row['预算销�?] == 0 or row['需求量'] == 0) else (row['需求量'] / row['预算销�?] * 100), axis=1)
+        capacity_df['较同期成�?] = capacity_df.apply(lambda row: 0 if (row['去年同期销�?] == 0 or row['需求量'] == 0) else ((row['需求量'] - row['去年同期销�?]) / row['去年同期销�?] * 100), axis=1)
 
         table_html = "<div class='section-card'>"
         table_html += "<div class='section-title'>需求分析（容量别）</div>"
         table_html += "<div style='overflow-x: auto; max-height: 400px; overflow-y: auto;'>"
         table_html += "<table class='custom-table'>"
         table_html += "<thead><tr>"
-        table_html += "<th>容量</th><th>需求量</th><th>预算<br>销量</th><th>同期<br>销量</th><th>预算<br>达成</th><th>较同期<br>成长</th><th>月累<br>排单</th><th>缺口量</th><th>缺口率</th>"
+        table_html += "<th>容量</th><th>需求量</th><th>预算<br>销�?/th><th>同期<br>销�?/th><th>预算<br>达成</th><th>较同�?br>成长</th><th>月累<br>排单</th><th>缺口�?/th><th>缺口�?/th>"
         table_html += "</tr></thead><tbody>"
 
         for _, row in capacity_df.iterrows():
             budget_rate = row['预算达成']
-            growth_rate = row['较同期成长']
+            growth_rate = row['较同期成�?]
             
             gap_amount = row['需求量'] - row['月累排单']
             gap_rate = (gap_amount / row['需求量'] * 100) if row['需求量'] > 0 else float('nan')
@@ -1777,8 +1777,8 @@ if st.session_state.current_page == '需求分析':
             table_html += "<tr>"
             table_html += f"<td>{row['容量']}</td>"
             table_html += f"<td>{row['需求量']:.2f}</td>"
-            table_html += f"<td>{row['预算销量']:.2f}</td>"
-            table_html += f"<td>{row['去年同期销量']:.2f}</td>"
+            table_html += f"<td>{row['预算销�?]:.2f}</td>"
+            table_html += f"<td>{row['去年同期销�?]:.2f}</td>"
             table_html += f"<td style='{budget_style}'>{budget_display}</td>"
             table_html += f"<td style='{growth_style}'>{growth_display}</td>"
             table_html += f"<td>{row['月累排单']:.2f}</td>"
@@ -1793,27 +1793,27 @@ if st.session_state.current_page == '需求分析':
         flavor_df = filtered_df.groupby('口味').agg({
             '需求量': 'sum',
             '月累排单': 'sum',
-            '去年同期销量': 'sum',
-            '预算销量': 'sum'
+            '去年同期销�?: 'sum',
+            '预算销�?: 'sum'
         }).reset_index()
         flavor_df = flavor_df.sort_values('需求量', ascending=False)
-        flavor_df['预算达成'] = flavor_df.apply(lambda row: 0 if row['需求量'] == 0 else (row['预算销量'] / row['需求量'] * 100), axis=1)
-        flavor_df['较同期成长'] = flavor_df.apply(lambda row: 0 if row['去年同期销量'] == 0 else ((row['需求量'] - row['去年同期销量']) / row['去年同期销量'] * 100), axis=1)
-        flavor_df['缺口量'] = flavor_df.apply(lambda row: row['需求量'] - row['月累排单'], axis=1)
-        flavor_df['缺口率'] = flavor_df.apply(lambda row: 0 if row['需求量'] == 0 else ((row['需求量'] - row['月累排单']) / row['需求量'] * 100), axis=1)
+        flavor_df['预算达成'] = flavor_df.apply(lambda row: 0 if row['需求量'] == 0 else (row['预算销�?] / row['需求量'] * 100), axis=1)
+        flavor_df['较同期成�?] = flavor_df.apply(lambda row: 0 if row['去年同期销�?] == 0 else ((row['需求量'] - row['去年同期销�?]) / row['去年同期销�?] * 100), axis=1)
+        flavor_df['缺口�?] = flavor_df.apply(lambda row: row['需求量'] - row['月累排单'], axis=1)
+        flavor_df['缺口�?] = flavor_df.apply(lambda row: 0 if row['需求量'] == 0 else ((row['需求量'] - row['月累排单']) / row['需求量'] * 100), axis=1)
 
         table_html = "<div class='section-card'>"
         table_html += "<div class='section-title'>需求分析（口味别）</div>"
         table_html += "<div style='overflow-x: auto; max-height: 400px; overflow-y: auto;'>"
         table_html += "<table class='custom-table'>"
         table_html += "<thead><tr>"
-        table_html += "<th>口味</th><th>需求量</th><th>预算<br>销量</th><th>同期<br>销量</th><th>预算<br>达成</th><th>较同期<br>成长</th><th>月累<br>排单</th><th>缺口量</th><th>缺口率</th>"
+        table_html += "<th>口味</th><th>需求量</th><th>预算<br>销�?/th><th>同期<br>销�?/th><th>预算<br>达成</th><th>较同�?br>成长</th><th>月累<br>排单</th><th>缺口�?/th><th>缺口�?/th>"
         table_html += "</tr></thead><tbody>"
 
         for _, row in flavor_df.iterrows():
             budget_rate = row['预算达成']
-            growth_rate = row['较同期成长']
-            gap_rate = row['缺口率']
+            growth_rate = row['较同期成�?]
+            gap_rate = row['缺口�?]
             
             budget_display = f"{budget_rate:.1f}%" if (pd.notna(budget_rate) and abs(budget_rate) != float('inf')) else '--'
             growth_display = f"{growth_rate:.1f}%" if (pd.notna(growth_rate) and abs(growth_rate) != float('inf')) else '--'
@@ -1826,12 +1826,12 @@ if st.session_state.current_page == '需求分析':
             table_html += "<tr>"
             table_html += f"<td>{row['口味']}</td>"
             table_html += f"<td>{row['需求量']:.2f}</td>"
-            table_html += f"<td>{row['预算销量']:.2f}</td>"
-            table_html += f"<td>{row['去年同期销量']:.2f}</td>"
+            table_html += f"<td>{row['预算销�?]:.2f}</td>"
+            table_html += f"<td>{row['去年同期销�?]:.2f}</td>"
             table_html += f"<td style='{budget_style}'>{budget_display}</td>"
             table_html += f"<td style='{growth_style}'>{growth_display}</td>"
             table_html += f"<td>{row['月累排单']:.2f}</td>"
-            table_html += f"<td>{row['缺口量']:.2f}</td>"
+            table_html += f"<td>{row['缺口�?]:.2f}</td>"
             table_html += f"<td style='{gap_style}'>{gap_rate_display}</td>"
             table_html += "</tr>"
 
@@ -1847,7 +1847,7 @@ if st.session_state.current_page == '需求分析':
         }).reset_index()
         pareto_df = pareto_df.sort_values('需求量', ascending=False)
         pareto_df['累计需求量'] = pareto_df['需求量'].cumsum()
-        pareto_df['累计百分比'] = (pareto_df['累计需求量'] / pareto_df['需求量'].sum() * 100).round(1)
+        pareto_df['累计百分�?] = (pareto_df['累计需求量'] / pareto_df['需求量'].sum() * 100).round(1)
         pareto_df['排名'] = range(1, len(pareto_df) + 1)
         
         fig_pareto = go.Figure()
@@ -1862,7 +1862,7 @@ if st.session_state.current_page == '需求分析':
         
         fig_pareto.add_trace(go.Scatter(
             x=pareto_df['口味'],
-            y=pareto_df['累计百分比'],
+            y=pareto_df['累计百分�?],
             name='累计占比',
             marker_color='#f59e0b',
             yaxis='y2',
@@ -1872,7 +1872,7 @@ if st.session_state.current_page == '需求分析':
         ))
         
         fig_pareto.update_layout(
-            title='口味需求量帕累托分析',
+            title='口味需求量帕累托分�?,
             xaxis_title='口味',
             yaxis=dict(
                 title='需求量',
@@ -1899,64 +1899,64 @@ if st.session_state.current_page == '需求分析':
             )
         )
         
-        fig_pareto.add_hline(y=80, line_dash="dash", line_color="#ef4444", annotation_text="80% 阈值", annotation_position="right")
+        fig_pareto.add_hline(y=80, line_dash="dash", line_color="#ef4444", annotation_text="80% 阈�?, annotation_position="right")
         
         st.plotly_chart(fig_pareto, use_container_width=True)
         
         top_20_percent = int(len(pareto_df) * 0.2) if len(pareto_df) > 0 else 0
         if top_20_percent > 0:
-            top_contribution = pareto_df.iloc[:top_20_percent]['累计百分比'].iloc[-1]
+            top_contribution = pareto_df.iloc[:top_20_percent]['累计百分�?].iloc[-1]
             st.markdown(f"<div style='margin-top: 16px; padding: 12px; background: #f8fafc; border-radius: 8px;'>", unsafe_allow_html=True)
-            st.markdown(f"<p style='color: #374151; font-size: 14px;'>**帕累托法则分析**：前 {top_20_percent} 个口味（约20%）贡献了 **{top_contribution:.1f}%** 的需求量</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='color: #374151; font-size: 14px;'>**帕累托法则分�?*：前 {top_20_percent} 个口味（�?0%）贡献了 **{top_contribution:.1f}%** 的需求量</p>", unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
 
     card_container = st.container(border=True)
     with card_container:
         st.markdown("<div class='section-title'>🚨 Top N 问题清单</div>", unsafe_allow_html=True)
         
-        gap_df = filtered_df.groupby('营业部').agg({
+        gap_df = filtered_df.groupby('营业�?).agg({
             '需求量': 'sum',
             '月累排单': 'sum'
         }).reset_index()
-        gap_df['缺口量'] = gap_df['需求量'] - gap_df['月累排单']
-        gap_df = gap_df[gap_df['缺口量'] > 0].sort_values('缺口量', ascending=False)
+        gap_df['缺口�?] = gap_df['需求量'] - gap_df['月累排单']
+        gap_df = gap_df[gap_df['缺口�?] > 0].sort_values('缺口�?, ascending=False)
         
-        total_gap = gap_df['缺口量'].sum()
-        gap_df['累计缺口占比'] = round(gap_df['缺口量'].cumsum() / total_gap * 100, 1) if total_gap > 0 else 0
+        total_gap = gap_df['缺口�?].sum()
+        gap_df['累计缺口占比'] = round(gap_df['缺口�?].cumsum() / total_gap * 100, 1) if total_gap > 0 else 0
         
         top_n_df = gap_df[gap_df['累计缺口占比'] <= 80].head(3)
         
         if len(top_n_df) == 0:
-            st.markdown("<div style='padding: 24px; text-align: center; color: #059669; background: #d1fae5; border-radius: 12px;'>🎉 所有营业部均无显著缺量问题！</div>", unsafe_allow_html=True)
+            st.markdown("<div style='padding: 24px; text-align: center; color: #059669; background: #d1fae5; border-radius: 12px;'>🎉 所有营业部均无显著缺量问题�?/div>", unsafe_allow_html=True)
         else:
             st.markdown(f"""
             <div style="padding: 12px; background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 8px; border: 1px solid #f59e0b;">
-                <p style="color: #92400e; font-size: 14px; margin: 0;"><strong>📊 问题分析</strong>：以下 <span style="color:#dc2626;">{len(top_n_df)} 个营业部</span> 贡献了 <span style="color:#dc2626;">80%以上</span> 的总缺量</p>
+                <p style="color: #92400e; font-size: 14px; margin: 0;"><strong>📊 问题分析</strong>：以�?<span style="color:#dc2626;">{len(top_n_df)} 个营业部</span> 贡献�?<span style="color:#dc2626;">80%以上</span> 的总缺�?/p>
             </div>
             """, unsafe_allow_html=True)
             
             cols = st.columns(3)
             for idx, (_, row) in enumerate(top_n_df.iterrows()):
                 with cols[idx]:
-                    gap_percent = round(row['缺口量'] / row['需求量'] * 100, 1) if row['需求量'] > 0 else 0
+                    gap_percent = round(row['缺口�?] / row['需求量'] * 100, 1) if row['需求量'] > 0 else 0
                     rank_color = '#dc2626' if idx == 0 else '#f59e0b' if idx == 1 else '#3b82f6'
                     gap_color = '#dc2626' if gap_percent > 50 else '#f59e0b' if gap_percent > 30 else '#3b82f6'
                     
                     if gap_percent > 50:
-                        action_text = "🚨 紧急：立即追加排单<br>📞 确认需求准确性"
+                        action_text = "🚨 紧急：立即追加排单<br>📞 确认需求准确�?
                     elif gap_percent > 30:
-                        action_text = "⚠️ 高优先级：尽快补单<br>🔍 分析缺量原因"
+                        action_text = "⚠️ 高优先级：尽快补�?br>🔍 分析缺量原因"
                     else:
-                        action_text = "📋 中等优先级：下批次补充"
+                        action_text = "📋 中等优先级：下批次补�?
                     
-                    expand_key = f"expand_dept_{row['营业部']}"
+                    expand_key = f"expand_dept_{row['营业�?]}"
                     is_expanded = st.session_state.get(expand_key, False)
                     
                     st.markdown(f"""
                     <div style="border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); overflow: hidden; background: white;">
                         <div style="display: flex; align-items: center; padding: 16px; border-bottom: 1px solid #e5e7eb;">
                             <div style="width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; color: white; background: {rank_color}; margin-right: 12px;">{idx+1}</div>
-                            <div style="font-weight: bold; font-size: 17px; color: #1f2937; flex: 1;">{row['营业部']}</div>
+                            <div style="font-weight: bold; font-size: 17px; color: #1f2937; flex: 1;">{row['营业�?]}</div>
                             <div style="font-weight: bold; font-size: 16px; padding: 4px 10px; border-radius: 16px; background: {gap_color}20; color: {gap_color};">{gap_percent}%</div>
                         </div>
                         <div style="padding: 16px;">
@@ -1966,12 +1966,12 @@ if st.session_state.current_page == '需求分析':
                                     <div style="font-weight: bold; font-size: 16px; color: #1f2937;">{row['需求量']:.1f}</div>
                                 </div>
                                 <div style="text-align: center; flex: 1; padding: 8px; background: #f8fafc; border-radius: 8px; margin: 0 3px;">
-                                    <div style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">已排单</div>
+                                    <div style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">已排�?/div>
                                     <div style="font-weight: bold; font-size: 16px; color: #1f2937;">{row['月累排单']:.1f}</div>
                                 </div>
                                 <div style="text-align: center; flex: 1; padding: 8px; background: #f8fafc; border-radius: 8px; margin: 0 3px;">
-                                    <div style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">缺口量</div>
-                                    <div style="font-weight: bold; font-size: 16px; color: {gap_color};">{row['缺口量']:.1f}</div>
+                                    <div style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">缺口�?/div>
+                                    <div style="font-weight: bold; font-size: 16px; color: {gap_color};">{row['缺口�?]:.1f}</div>
                                 </div>
                             </div>
                             <div style="background: #fffbeb; border-radius: 8px; padding: 12px;">
@@ -1984,44 +1984,44 @@ if st.session_state.current_page == '需求分析':
                     def toggle_expand(dept):
                         st.session_state[f"expand_dept_{dept}"] = not st.session_state.get(f"expand_dept_{dept}", False)
                     
-                    st.button(f"查看详情 {'▼' if is_expanded else '▲'}", key=f"btn_click_{row['营业部'].replace(' ', '_')}", on_click=toggle_expand, args=(row['营业部'],), use_container_width=True)
+                    st.button(f"查看详情 {'�? if is_expanded else '�?}", key=f"btn_click_{row['营业�?].replace(' ', '_')}", on_click=toggle_expand, args=(row['营业�?],), use_container_width=True)
                     
                     if st.session_state.get(expand_key, False):
-                        dept_detail = filtered_df[filtered_df['营业部'] == row['营业部']].copy()
-                        dept_detail['缺口量'] = dept_detail['需求量'] - dept_detail['月累排单']
-                        dept_detail['缺口率'] = round(dept_detail['缺口量'] / dept_detail['需求量'] * 100, 1).fillna(0)
-                        dept_detail = dept_detail[dept_detail['缺口量'] > 0].sort_values('缺口量', ascending=False).head(10)
+                        dept_detail = filtered_df[filtered_df['营业�?] == row['营业�?]].copy()
+                        dept_detail['缺口�?] = dept_detail['需求量'] - dept_detail['月累排单']
+                        dept_detail['缺口�?] = round(dept_detail['缺口�?] / dept_detail['需求量'] * 100, 1).fillna(0)
+                        dept_detail = dept_detail[dept_detail['缺口�?] > 0].sort_values('缺口�?, ascending=False).head(10)
                         
                         if len(dept_detail) > 0:
                             table_rows = ""
                             for _, detail_row in dept_detail.iterrows():
-                                gap_rate_color = '#dc2626' if detail_row['缺口率'] > 20 else '#3b82f6'
+                                gap_rate_color = '#dc2626' if detail_row['缺口�?] > 20 else '#3b82f6'
                                 taste = str(detail_row['口味'])
                                 capacity = str(detail_row['容量'])
                                 demand = round(detail_row['需求量'], 1)
                                 order = round(detail_row['月累排单'], 1)
-                                gap = round(detail_row['缺口量'], 1)
-                                gap_rate = detail_row['缺口率']
+                                gap = round(detail_row['缺口�?], 1)
+                                gap_rate = detail_row['缺口�?]
                                 
                                 table_rows += f"""<tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{taste}</td><td style="padding: 4px; text-align: right;">{capacity}</td><td style="padding: 4px; text-align: right;">{demand}</td><td style="padding: 4px; text-align: right;">{order}</td><td style="padding: 4px; text-align: right; color: {gap_rate_color};">{gap}</td><td style="padding: 4px; text-align: right; color: {gap_rate_color}; font-weight: 600;">{gap_rate}%</td></tr>"""
                             
-                            table_html = f"""<div style="margin-top: 2px; margin-bottom: 12px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); overflow: hidden; background: #ffffff; border: 1px solid #e5e7eb;"><div style="padding: 10px; background: #f1f5f9; border-bottom: 1px solid #e2e8f0;"><div style="font-weight: bold; font-size: 13px; color: #334155;">口味容量明细（前10）</div></div><div style="padding: 0; max-height: 220px; overflow-y: auto;"><table style="width: 100%; font-size: 11px; border-collapse: collapse; table-layout: fixed;"><thead style="position: sticky; top: 0; background: #e2e8f0; z-index: 1;"><tr><th style="padding: 5px 4px; text-align: left; font-weight: 600; color: #475569; width: 25%;">口味</th><th style="padding: 5px 4px; text-align: right; font-weight: 600; color: #475569; width: 12%;">容量</th><th style="padding: 5px 4px; text-align: right; font-weight: 600; color: #475569; width: 15%;">需求量</th><th style="padding: 5px 4px; text-align: right; font-weight: 600; color: #475569; width: 15%;">已排单</th><th style="padding: 5px 4px; text-align: right; font-weight: 600; color: #475569; width: 15%;">缺口量</th><th style="padding: 5px 4px; text-align: right; font-weight: 600; color: #475569; width: 18%;">缺口率</th></tr></thead><tbody>{table_rows}</tbody></table></div></div>"""
+                            table_html = f"""<div style="margin-top: 2px; margin-bottom: 12px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); overflow: hidden; background: #ffffff; border: 1px solid #e5e7eb;"><div style="padding: 10px; background: #f1f5f9; border-bottom: 1px solid #e2e8f0;"><div style="font-weight: bold; font-size: 13px; color: #334155;">口味容量明细（前10�?/div></div><div style="padding: 0; max-height: 220px; overflow-y: auto;"><table style="width: 100%; font-size: 11px; border-collapse: collapse; table-layout: fixed;"><thead style="position: sticky; top: 0; background: #e2e8f0; z-index: 1;"><tr><th style="padding: 5px 4px; text-align: left; font-weight: 600; color: #475569; width: 25%;">口味</th><th style="padding: 5px 4px; text-align: right; font-weight: 600; color: #475569; width: 12%;">容量</th><th style="padding: 5px 4px; text-align: right; font-weight: 600; color: #475569; width: 15%;">需求量</th><th style="padding: 5px 4px; text-align: right; font-weight: 600; color: #475569; width: 15%;">已排�?/th><th style="padding: 5px 4px; text-align: right; font-weight: 600; color: #475569; width: 15%;">缺口�?/th><th style="padding: 5px 4px; text-align: right; font-weight: 600; color: #475569; width: 18%;">缺口�?/th></tr></thead><tbody>{table_rows}</tbody></table></div></div>"""
                             st.markdown(table_html, unsafe_allow_html=True)
                         else:
-                            st.markdown("<div style='margin-top: 12px; padding: 12px; background: #d1fae5; border-radius: 8px; text-align: center; color: #059669; font-size: 13px;'>该营业部当前筛选条件下无缺量明细</div>", unsafe_allow_html=True)
+                            st.markdown("<div style='margin-top: 12px; padding: 12px; background: #d1fae5; border-radius: 8px; text-align: center; color: #059669; font-size: 13px;'>该营业部当前筛选条件下无缺量明�?/div>", unsafe_allow_html=True)
 
     card_container = st.container(border=True)
     with card_container:
-        st.markdown("<div class='section-title'>需求与预算对比（口味别）</div>", unsafe_allow_html=True)
+        st.markdown("<div class='section-title'>需求与预算对比（口味别�?/div>", unsafe_allow_html=True)
         chart_flavor_df = filtered_df.groupby('口味').agg({
             '需求量': 'sum',
-            '预算销量': 'sum'
+            '预算销�?: 'sum'
         }).reset_index()
         chart_flavor_df = chart_flavor_df.sort_values('需求量', ascending=False)
 
-        fig_compare = px.bar(chart_flavor_df, y='口味', x=['需求量', '预算销量'],
+        fig_compare = px.bar(chart_flavor_df, y='口味', x=['需求量', '预算销�?],
                              barmode='group', orientation='h', height=600,
-                             color_discrete_map={'需求量': '#1e40af', '预算销量': '#60a5fa'})
+                             color_discrete_map={'需求量': '#1e40af', '预算销�?: '#60a5fa'})
         fig_compare.update_layout(
             plot_bgcolor='white',
             paper_bgcolor='white',
@@ -2038,7 +2038,7 @@ if st.session_state.current_page == '需求分析':
         )
         st.plotly_chart(fig_compare, use_container_width=True)
 
-elif st.session_state.current_page == '历史销量':
+elif st.session_state.current_page == '历史销�?:
     SAVE_FILE = 'history_data_cache.pkl'
     
     def reshape_data(df):
@@ -2059,9 +2059,9 @@ elif st.session_state.current_page == '历史销量':
             df_melted = df.melt(id_vars=[col for col in df.columns if col not in date_cols], 
                                value_vars=date_cols,
                                var_name='月份',
-                               value_name='销量')
+                               value_name='销�?)
             
-            df_melted['月份'] = df_melted['月份'].apply(lambda x: f"{pd.to_datetime(str(x)).month}月" if pd.notna(pd.to_datetime(str(x), errors='coerce')) else str(x))
+            df_melted['月份'] = df_melted['月份'].apply(lambda x: f"{pd.to_datetime(str(x)).month}�? if pd.notna(pd.to_datetime(str(x), errors='coerce')) else str(x))
             return df_melted
         
         return df
@@ -2075,21 +2075,21 @@ elif st.session_state.current_page == '历史销量':
         df_budget = pd.DataFrame()
         
         for sheet in available_sheets:
-            if '2026年实际销量' in sheet or sheet == '2026年实际销量':
+            if '2026年实际销�? in sheet or sheet == '2026年实际销�?:
                 df_2026 = pd.read_excel(file_path, sheet_name=sheet)
                 df_2026 = reshape_data(df_2026)
-            elif '2025年实际销量' in sheet or sheet == '2025年实际销量':
+            elif '2025年实际销�? in sheet or sheet == '2025年实际销�?:
                 df_2025 = pd.read_excel(file_path, sheet_name=sheet)
                 df_2025 = reshape_data(df_2025)
-            elif '2026年预算销量' in sheet or sheet == '2026年预算销量':
+            elif '2026年预算销�? in sheet or sheet == '2026年预算销�?:
                 df_budget = pd.read_excel(file_path, sheet_name=sheet)
                 df_budget = reshape_data(df_budget)
         
         material_flavor_map = {}
-        if '日产量监控' in available_sheets:
+        if '日产量监�? in available_sheets:
             try:
-                df_daily_prod = pd.read_excel(file_path, sheet_name='日产量监控')
-                material_flavor_map = df_daily_prod.groupby('物料号')['口味'].first().to_dict()
+                df_daily_prod = pd.read_excel(file_path, sheet_name='日产量监�?)
+                material_flavor_map = df_daily_prod.groupby('物料�?)['口味'].first().to_dict()
             except Exception:
                 pass
 
@@ -2126,20 +2126,20 @@ elif st.session_state.current_page == '历史销量':
     
     if df_2026_actual.empty and df_2025_actual.empty and df_2026_budget.empty:
         import os
-        if os.path.exists('2026销量.xlsx'):
-            df_2026_actual, df_2025_actual, df_2026_budget, material_flavor_map = load_history_data('2026销量.xlsx')
+        if os.path.exists('2026销�?xlsx'):
+            df_2026_actual, df_2025_actual, df_2026_budget, material_flavor_map = load_history_data('2026销�?xlsx')
             save_data(df_2026_actual, df_2025_actual, df_2026_budget, material_flavor_map)
-            st.success("已从默认数据文件加载数据！")
+            st.success("已从默认数据文件加载数据�?)
 
     st.markdown("""
         <div class='header-card-history'>
-            <div class='header-title'>历史销量分析</div>
+            <div class='header-title'>历史销量分�?/div>
             <div class='header-subtitle'>基于2025-2026年实际销量与预算数据</div>
         </div>
         """, unsafe_allow_html=True)
 
     with st.expander("上传/更新数据", expanded=False):
-        uploaded_file = st.file_uploader("选择Excel文件（需包含2026年实际销量、2025年实际销量、2026年预算销量sheet）", 
+        uploaded_file = st.file_uploader("选择Excel文件（需包含2026年实际销量�?025年实际销量�?026年预算销量sheet�?, 
                                         type=['xlsx'], key='history_uploader_new')
         if uploaded_file is not None:
             load_data.clear()
@@ -2151,17 +2151,17 @@ elif st.session_state.current_page == '历史销量':
             df_2026_actual, df_2025_actual, df_2026_budget, material_flavor_map = load_history_data(uploaded_file)
             save_data(df_2026_actual, df_2025_actual, df_2026_budget, material_flavor_map)
             
-            st.success("数据已刷新并保存！")
+            st.success("数据已刷新并保存�?)
             st.rerun()
 
     material_col = None
-    for col in ['物料号', '物料', '物料编号', '产品号', '产品编号', 'ItemCode', 'Item']:
+    for col in ['物料�?, '物料', '物料编号', '产品�?, '产品编号', 'ItemCode', 'Item']:
         if col in df_2026_actual.columns:
             material_col = col
             break
     
     if material_col is None and not df_2026_actual.empty:
-        print(f"未找到物料号列，可用列: {df_2026_actual.columns.tolist()}")
+        print(f"未找到物料号列，可用�? {df_2026_actual.columns.tolist()}")
     
     all_materials_2026 = df_2026_actual[material_col].unique() if not df_2026_actual.empty and material_col else []
     all_materials_2025 = df_2025_actual[material_col].unique() if not df_2025_actual.empty and material_col else []
@@ -2175,26 +2175,26 @@ elif st.session_state.current_page == '历史销量':
     material_to_universal = material_map.get('material_to_universal', {})
     universal_to_attrs = material_map.get('universal_to_attrs', {})
     
-    print(f"物料映射状态: material_to_universal大小={len(material_to_universal)}, universal_to_attrs大小={len(universal_to_attrs)}")
+    print(f"物料映射状�? material_to_universal大小={len(material_to_universal)}, universal_to_attrs大小={len(universal_to_attrs)}")
     
     if material_map.get('flavors'):
         available_flavors = material_map['flavors']
-        print(f"从物料对应关系获取口味: {available_flavors}")
+        print(f"从物料对应关系获取口�? {available_flavors}")
     elif '口味' in df.columns:
         available_flavors = sorted(df['口味'].unique())
         print(f"从主数据获取口味: {available_flavors}")
     
     if material_map.get('capacities'):
         available_capacities = material_map['capacities']
-        print(f"从物料对应关系获取容量: {available_capacities}")
+        print(f"从物料对应关系获取容�? {available_capacities}")
     elif '容量' in df.columns:
         available_capacities = sorted(df['容量'].unique())
     
     if material_map.get('packages'):
         available_packages = material_map['packages']
         print(f"从物料对应关系获取内包装: {available_packages}")
-    elif '内包装' in df.columns:
-        available_packages = sorted(df['内包装'].unique())
+    elif '内包�? in df.columns:
+        available_packages = sorted(df['内包�?].unique())
 
     col1, col2, col3, col4, col5, col6, col7, col8 = st.columns(8)
 
@@ -2209,10 +2209,10 @@ elif st.session_state.current_page == '历史销量':
                 all_depts = []
                 for depts in REGION_DEPT_MAP.values():
                     all_depts.extend(depts)
-                history_dept_options = ['全部'] + list(set(all_depts) & set(df_2026_actual['营业部'].unique()))
+                history_dept_options = ['全部'] + list(set(all_depts) & set(df_2026_actual['营业�?].unique()))
             else:
-                history_dept_options = ['全部'] + [d for d in REGION_DEPT_MAP[history_region] if d in df_2026_actual['营业部'].unique()]
-        history_dept = st.selectbox('营业部', history_dept_options, key='history_dept')
+                history_dept_options = ['全部'] + [d for d in REGION_DEPT_MAP[history_region] if d in df_2026_actual['营业�?].unique()]
+        history_dept = st.selectbox('营业�?, history_dept_options, key='history_dept')
 
     with col3:
         history_project = st.selectbox('专案', ['全部'] + list(project_map.keys()), key='history_project')
@@ -2264,9 +2264,9 @@ elif st.session_state.current_page == '历史销量':
         dynamic_packages = sorted([p for p in package_set if p])
 
     with col8:
-        history_package = st.selectbox('内包装', ['全部'] + dynamic_packages, key='history_package_new')
+        history_package = st.selectbox('内包�?, ['全部'] + dynamic_packages, key='history_package_new')
     
-    all_months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
+    all_months = ['1�?, '2�?, '3�?, '4�?, '5�?, '6�?, '7�?, '8�?, '9�?, '10�?, '11�?, '12�?]
     
     available_months_set = set()
     if '月份' in df_2026_actual.columns:
@@ -2278,9 +2278,7 @@ elif st.session_state.current_page == '历史销量':
     
     available_months = [m for m in all_months if m in available_months_set]
     
-    # 强制重置月份选择状态，清除之前的缓存
-    # 取消下面一行的注释来重置状态
-    # st.session_state.pop('history_month_multi', None)
+    # 强制重置月份选择状态，清除之前的缓�?    # 取消下面一行的注释来重置状�?    # st.session_state.pop('history_month_multi', None)
     
     # 确保状态初始化为空列表
     if 'history_month_multi' not in st.session_state or st.session_state.history_month_multi is None:
@@ -2313,17 +2311,15 @@ elif st.session_state.current_page == '历史销量':
         </style>
     """, unsafe_allow_html=True)
     
-    # 创建columns来横向排列
-    num_cols = 3 + len(available_months)
+    # 创建columns来横向排�?    num_cols = 3 + len(available_months)
     cols = st.columns(num_cols, gap="small")
     
     # 月份标签
     with cols[0]:
         st.markdown(f'<div class="month-label-{ts}">月份</div>', unsafe_allow_html=True)
     
-    # 全选按钮
-    with cols[1]:
-        if st.button('全选', key='month_select_all'):
+    # 全选按�?    with cols[1]:
+        if st.button('全�?, key='month_select_all'):
             st.session_state.history_month_multi = available_months[:]
             st.rerun()
     
@@ -2354,29 +2350,29 @@ elif st.session_state.current_page == '历史销量':
     filtered_2025 = filter_data(df_2025_actual, history_region, history_dept, selected_months, history_flavor, history_capacity, history_package, history_project, history_product30, history_product20, REGION_DEPT_MAP, flavor_to_materials, capacity_to_materials, package_to_materials, project_map, product30_map, product20_map, material_col)
     filtered_budget = filter_data(df_2026_budget, history_region, history_dept, selected_months, history_flavor, history_capacity, history_package, history_project, history_product30, history_product20, REGION_DEPT_MAP, flavor_to_materials, capacity_to_materials, package_to_materials, project_map, product30_map, product20_map, material_col)
 
-    with st.expander("筛选结果调试", expanded=False):
-        st.write(f"筛选条件 - 口味: {history_flavor}, 容量: {history_capacity}, 内包装: {history_package}")
+    with st.expander("筛选结果调�?, expanded=False):
+        st.write(f"筛选条�?- 口味: {history_flavor}, 容量: {history_capacity}, 内包�? {history_package}")
         st.write(f"原始2026数据行数: {len(df_2026_actual)}, 筛选后: {len(filtered_2026)}")
         st.write(f"原始2025数据行数: {len(df_2025_actual)}, 筛选后: {len(filtered_2025)}")
         st.write(f"原始预算数据行数: {len(df_2026_budget)}, 筛选后: {len(filtered_budget)}")
         
         if history_flavor != '全部':
-            st.write(f"口味 '{history_flavor}' 筛选结果检查:")
+            st.write(f"口味 '{history_flavor}' 筛选结果检�?")
             if len(filtered_2026) == 0:
-                st.warning("筛选后2026数据为空！")
+                st.warning("筛选后2026数据为空�?)
             else:
-                st.success("筛选后2026数据不为空")
+                st.success("筛选后2026数据不为�?)
         
-        if '物料号' in df_2026_actual.columns:
-            original_materials = set(df_2026_actual['物料号'].astype(str).str.strip())
-            filtered_materials = set(filtered_2026['物料号'].astype(str).str.strip()) if not filtered_2026.empty else set()
-            st.write(f"物料号数量变化: {len(original_materials)} -> {len(filtered_materials)}")
+        if '物料�? in df_2026_actual.columns:
+            original_materials = set(df_2026_actual['物料�?].astype(str).str.strip())
+            filtered_materials = set(filtered_2026['物料�?].astype(str).str.strip()) if not filtered_2026.empty else set()
+            st.write(f"物料号数量变�? {len(original_materials)} -> {len(filtered_materials)}")
 
     sales_col = None
     if not df_2026_actual.empty:
         for col in df_2026_actual.columns:
             col_str = str(col)
-            if '销量' in col_str or 'Qty' in col_str or 'amount' in col_str.lower() or 'sales' in col_str.lower():
+            if '销�? in col_str or 'Qty' in col_str or 'amount' in col_str.lower() or 'sales' in col_str.lower():
                 sales_col = col
                 break
         if sales_col is None:
@@ -2392,9 +2388,9 @@ elif st.session_state.current_page == '历史销量':
                 break
         if budget_col is None:
             numeric_cols = df_2026_budget.select_dtypes(include=[int, float]).columns
-            budget_col = numeric_cols[0] if len(numeric_cols) > 0 else (df_2026_budget.columns[-1] if len(df_2026_budget.columns) > 0 else '预算销量')
+            budget_col = numeric_cols[0] if len(numeric_cols) > 0 else (df_2026_budget.columns[-1] if len(df_2026_budget.columns) > 0 else '预算销�?)
     else:
-        budget_col = '预算销量'
+        budget_col = '预算销�?
     
     total_2026 = int(pd.to_numeric(filtered_2026[sales_col], errors='coerce').sum()) if not filtered_2026.empty and sales_col in filtered_2026.columns else 0
     total_2025 = int(pd.to_numeric(filtered_2025[sales_col], errors='coerce').sum()) if not filtered_2025.empty and sales_col in filtered_2025.columns else 0
@@ -2402,7 +2398,7 @@ elif st.session_state.current_page == '历史销量':
     growth_rate = ((total_2026 - total_2025) / total_2025 * 100) if total_2025 > 0 else 0
     budget_achievement = (total_2026 / total_budget * 100) if total_budget > 0 else 0
     
-    months_order = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
+    months_order = ['1�?, '2�?, '3�?, '4�?, '5�?, '6�?, '7�?, '8�?, '9�?, '10�?, '11�?, '12�?]
     mom_growth_rate = None
     
     selected_months_list = st.session_state.history_month_multi if 'history_month_multi' in st.session_state else []
@@ -2414,7 +2410,7 @@ elif st.session_state.current_page == '历史销量':
             current_month_sales = df_2026_actual[df_2026_actual['月份'] == selected_month][sales_col].sum()
             
             if month_idx == 0:
-                prev_month = '12月'
+                prev_month = '12�?
                 prev_month_sales = df_2025_actual[df_2025_actual['月份'] == prev_month][sales_col].sum()
             else:
                 prev_month = months_order[month_idx - 1]
@@ -2425,13 +2421,13 @@ elif st.session_state.current_page == '历史销量':
 
     growth_card_class = 'metric-card-red' if growth_rate < 0 else 'metric-card-green'
     growth_value_class = 'metric-value-red' if growth_rate < 0 else 'metric-value-green'
-    growth_trend_icon = '↓' if growth_rate < 0 else '↑'
+    growth_trend_icon = '�? if growth_rate < 0 else '�?
     growth_trend_color = '#dc2626' if growth_rate < 0 else '#059669'
     
     if mom_growth_rate is not None:
         mom_card_class = 'metric-card-red' if mom_growth_rate < 0 else 'metric-card-blue'
         mom_value_class = 'metric-value-red' if mom_growth_rate < 0 else 'metric-value-blue'
-        mom_trend_icon = '↓' if mom_growth_rate < 0 else '↑'
+        mom_trend_icon = '�? if mom_growth_rate < 0 else '�?
         mom_trend_color = '#dc2626' if mom_growth_rate < 0 else '#1e40af'
         mom_display_value = f"{mom_growth_rate:.1f}%"
         mom_trend_text = f"{mom_trend_icon} {'环比下降' if mom_growth_rate < 0 else '环比增长'}"
@@ -2446,19 +2442,19 @@ elif st.session_state.current_page == '历史销量':
         <div style='display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 20px; margin-bottom: 24px;'>
             <div class='metric-card-purple'>
                 <div class='metric-value-purple'>{total_2026:,}</div>
-                <div class='metric-label'>2026年实际销量</div>
+                <div class='metric-label'>2026年实际销�?/div>
             </div>
             <div class='metric-card-purple'>
                 <div class='metric-value-purple'>{total_2025:,}</div>
-                <div class='metric-label'>2025年实际销量</div>
+                <div class='metric-label'>2025年实际销�?/div>
             </div>
             <div class='metric-card-purple'>
                 <div class='metric-value-purple'>{total_budget:,}</div>
-                <div class='metric-label'>2026年预算销量</div>
+                <div class='metric-label'>2026年预算销�?/div>
             </div>
             <div class='{growth_card_class}'>
                 <div class='{growth_value_class}'>{growth_rate:.1f}%</div>
-                <div class='metric-label'>同比增长率</div>
+                <div class='metric-label'>同比增长�?/div>
                 <div class='metric-trend' style='color: {growth_trend_color};'>
                     <span style='margin-right: 4px;'>{growth_trend_icon}</span>
                     {growth_trend_color == '#dc2626' and '同比下降' or '同比增长'}
@@ -2466,12 +2462,12 @@ elif st.session_state.current_page == '历史销量':
             </div>
             <div class='{mom_card_class}'>
                 <div class='{mom_value_class}'>{mom_display_value}</div>
-                <div class='metric-label'>环比增长率</div>
+                <div class='metric-label'>环比增长�?/div>
                 <div class='metric-trend' style='color: {mom_trend_color};'>{mom_trend_text}</div>
             </div>
             <div class='metric-card-orange'>
                 <div class='metric-value-orange'>{budget_achievement:.1f}%</div>
-                <div class='metric-label'>预算达成率</div>
+                <div class='metric-label'>预算达成�?/div>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -2527,24 +2523,24 @@ elif st.session_state.current_page == '历史销量':
                 
                 capacity_growth_df = pd.merge(capacity_2026, capacity_2025, on='容量', suffixes=('_2026', '_2025'))
                 capacity_growth_df = capacity_growth_df[capacity_growth_df['容量'].notna() & (capacity_growth_df['容量'] != '')]
-                capacity_growth_df['成长率'] = ((capacity_growth_df[f'{sales_col}_2026'] - capacity_growth_df[f'{sales_col}_2025']) / capacity_growth_df[f'{sales_col}_2025'] * 100).fillna(0)
-                capacity_growth_df = capacity_growth_df[~capacity_growth_df['成长率'].isin([float('inf'), float('-inf')])]
-                capacity_growth_df = capacity_growth_df.sort_values('成长率', ascending=False)
+                capacity_growth_df['成长�?] = ((capacity_growth_df[f'{sales_col}_2026'] - capacity_growth_df[f'{sales_col}_2025']) / capacity_growth_df[f'{sales_col}_2025'] * 100).fillna(0)
+                capacity_growth_df = capacity_growth_df[~capacity_growth_df['成长�?].isin([float('inf'), float('-inf')])]
+                capacity_growth_df = capacity_growth_df.sort_values('成长�?, ascending=False)
                 
                 import plotly.graph_objects as go
                 fig_capacity_growth = go.Figure()
                 
-                positive_growth = capacity_growth_df[capacity_growth_df['成长率'] >= 0]
-                negative_growth = capacity_growth_df[capacity_growth_df['成长率'] < 0]
+                positive_growth = capacity_growth_df[capacity_growth_df['成长�?] >= 0]
+                negative_growth = capacity_growth_df[capacity_growth_df['成长�?] < 0]
                 
                 if not positive_growth.empty:
                     fig_capacity_growth.add_trace(go.Bar(
                         y=positive_growth['容量'],
-                        x=positive_growth['成长率'],
+                        x=positive_growth['成长�?],
                         orientation='h',
                         marker_color='#dc2626',
                         marker_cornerradius=4,
-                        text=positive_growth['成长率'].apply(lambda x: f'+{x:.1f}%'),
+                        text=positive_growth['成长�?].apply(lambda x: f'+{x:.1f}%'),
                         textposition='outside',
                         textfont=dict(size=12, weight='bold')
                     ))
@@ -2552,16 +2548,16 @@ elif st.session_state.current_page == '历史销量':
                 if not negative_growth.empty:
                     fig_capacity_growth.add_trace(go.Bar(
                         y=negative_growth['容量'],
-                        x=negative_growth['成长率'],
+                        x=negative_growth['成长�?],
                         orientation='h',
                         marker_color='#0360EA',
                         marker_cornerradius=4,
-                        text=negative_growth['成长率'].apply(lambda x: f'{x:.1f}%'),
+                        text=negative_growth['成长�?].apply(lambda x: f'{x:.1f}%'),
                         textposition='outside',
                         textfont=dict(size=12, weight='bold')
                     ))
                 
-                max_abs_value = abs(capacity_growth_df['成长率']).max() if len(capacity_growth_df) > 0 else 10
+                max_abs_value = abs(capacity_growth_df['成长�?]).max() if len(capacity_growth_df) > 0 else 10
                 x_range = min(max_abs_value * 1.3, 100)
                 
                 fig_capacity_growth.update_layout(
@@ -2596,7 +2592,7 @@ elif st.session_state.current_page == '历史销量':
     with col_new2:
         card_container = st.container(border=True)
         with card_container:
-            st.markdown("<div class='section-title-purple'>预算达成（容量别）</div>", unsafe_allow_html=True)
+            st.markdown("<div class='section-title-purple'>预算达成（容量别�?/div>", unsafe_allow_html=True)
             
             has_capacity_actual = '容量' in filtered_2026_with_capacity.columns and filtered_2026_with_capacity['容量'].notna().any()
             has_capacity_budget = '容量' in filtered_budget_with_capacity.columns and filtered_budget_with_capacity['容量'].notna().any()
@@ -2608,25 +2604,25 @@ elif st.session_state.current_page == '历史销量':
                 
                 capacity_budget_df = pd.merge(capacity_actual, capacity_budget, on='容量', suffixes=('_actual', '_budget'))
                 capacity_budget_df = capacity_budget_df[capacity_budget_df['容量'].notna() & (capacity_budget_df['容量'] != '')]
-                capacity_budget_df['达成率'] = (capacity_budget_df.iloc[:, 1] / capacity_budget_df.iloc[:, 2] * 100).fillna(0)
-                capacity_budget_df['达成率差值'] = capacity_budget_df['达成率'] - 100
-                capacity_budget_df = capacity_budget_df[~capacity_budget_df['达成率差值'].isin([float('inf'), float('-inf')])]
-                capacity_budget_df = capacity_budget_df.sort_values('达成率', ascending=False)
+                capacity_budget_df['达成�?] = (capacity_budget_df.iloc[:, 1] / capacity_budget_df.iloc[:, 2] * 100).fillna(0)
+                capacity_budget_df['达成率差�?] = capacity_budget_df['达成�?] - 100
+                capacity_budget_df = capacity_budget_df[~capacity_budget_df['达成率差�?].isin([float('inf'), float('-inf')])]
+                capacity_budget_df = capacity_budget_df.sort_values('达成�?, ascending=False)
                 
                 import plotly.graph_objects as go
                 fig_capacity_budget = go.Figure()
                 
-                positive_budget = capacity_budget_df[capacity_budget_df['达成率差值'] >= 0]
-                negative_budget = capacity_budget_df[capacity_budget_df['达成率差值'] < 0]
+                positive_budget = capacity_budget_df[capacity_budget_df['达成率差�?] >= 0]
+                negative_budget = capacity_budget_df[capacity_budget_df['达成率差�?] < 0]
                 
                 if not positive_budget.empty:
                     fig_capacity_budget.add_trace(go.Bar(
                         y=positive_budget['容量'],
-                        x=positive_budget['达成率差值'],
+                        x=positive_budget['达成率差�?],
                         orientation='h',
                         marker_color='#dc2626',
                         marker_cornerradius=4,
-                        text=positive_budget['达成率差值'].apply(lambda x: f'+{x:.1f}%'),
+                        text=positive_budget['达成率差�?].apply(lambda x: f'+{x:.1f}%'),
                         textposition='outside',
                         textfont=dict(size=12, weight='bold')
                     ))
@@ -2634,16 +2630,16 @@ elif st.session_state.current_page == '历史销量':
                 if not negative_budget.empty:
                     fig_capacity_budget.add_trace(go.Bar(
                         y=negative_budget['容量'],
-                        x=negative_budget['达成率差值'],
+                        x=negative_budget['达成率差�?],
                         orientation='h',
                         marker_color='#0360EA',
                         marker_cornerradius=4,
-                        text=negative_budget['达成率差值'].apply(lambda x: f'{x:.1f}%'),
+                        text=negative_budget['达成率差�?].apply(lambda x: f'{x:.1f}%'),
                         textposition='outside',
                         textfont=dict(size=12, weight='bold')
                     ))
                 
-                max_abs_value = abs(capacity_budget_df['达成率差值']).max() if len(capacity_budget_df) > 0 else 10
+                max_abs_value = abs(capacity_budget_df['达成率差�?]).max() if len(capacity_budget_df) > 0 else 10
                 x_range = min(max_abs_value * 1.3, 100)
                 
                 fig_capacity_budget.update_layout(
@@ -2673,7 +2669,7 @@ elif st.session_state.current_page == '历史销量':
                 
                 st.plotly_chart(fig_capacity_budget, use_container_width=True)
             else:
-                st.markdown("<div style='text-align: center; color: #9ca3af; padding-top: 60px;'>无法获取容量或预算信息</div>", unsafe_allow_html=True)
+                st.markdown("<div style='text-align: center; color: #9ca3af; padding-top: 60px;'>无法获取容量或预算信�?/div>", unsafe_allow_html=True)
 
     with col_new3:
         card_container = st.container(border=True)
@@ -2710,7 +2706,7 @@ elif st.session_state.current_page == '历史销量':
     def convert_month(month_val):
         try:
             if isinstance(month_val, pd.Timestamp) or ('/' in str(month_val) or '-' in str(month_val)):
-                return f"{pd.to_datetime(month_val).month}月"
+                return f"{pd.to_datetime(month_val).month}�?
             return str(month_val)
         except:
             return str(month_val)
@@ -2732,16 +2728,16 @@ elif st.session_state.current_page == '历史销量':
     if '月份' in filtered_2026.columns and sales_col:
         monthly_2026 = filtered_2026.groupby('月份')[sales_col].sum().reindex(months_order, fill_value=0).reset_index()
     else:
-        monthly_2026 = pd.DataFrame({'月份': months_order, '销量': [0]*12})
+        monthly_2026 = pd.DataFrame({'月份': months_order, '销�?: [0]*12})
         if sales_col:
-            monthly_2026 = monthly_2026.rename(columns={'销量': sales_col})
+            monthly_2026 = monthly_2026.rename(columns={'销�?: sales_col})
     
     if '月份' in filtered_2025.columns and sales_col:
         monthly_2025 = filtered_2025.groupby('月份')[sales_col].sum().reindex(months_order, fill_value=0).reset_index()
     else:
-        monthly_2025 = pd.DataFrame({'月份': months_order, '销量': [0]*12})
+        monthly_2025 = pd.DataFrame({'月份': months_order, '销�?: [0]*12})
         if sales_col:
-            monthly_2025 = monthly_2025.rename(columns={'销量': sales_col})
+            monthly_2025 = monthly_2025.rename(columns={'销�?: sales_col})
     
     if '月份' in filtered_budget.columns:
         monthly_budget = filtered_budget.groupby('月份')[budget_col].sum().reindex(months_order, fill_value=0).reset_index()
@@ -2751,7 +2747,7 @@ elif st.session_state.current_page == '历史销量':
     monthly_compare = pd.merge(monthly_2026, monthly_2025, on='月份', suffixes=('_2026', '_2025'))
     monthly_compare = pd.merge(monthly_compare, monthly_budget, on='月份')
     
-    monthly_compare['增长率'] = monthly_compare.apply(
+    monthly_compare['增长�?] = monthly_compare.apply(
         lambda row: ((row[f'{sales_col}_2026'] - row[f'{sales_col}_2025']) / row[f'{sales_col}_2025'] * 100)
         if row[f'{sales_col}_2025'] > 0 else None,
         axis=1
@@ -2771,7 +2767,7 @@ elif st.session_state.current_page == '历史销量':
         fig_trend.add_trace(go.Bar(
             x=monthly_compare['月份'],
             y=monthly_compare[f'{sales_col}_2026'],
-            name='26年销量',
+            name='26年销�?,
             marker_color='#0360EA',
             marker_line_width=0,
             marker_cornerradius=6
@@ -2780,7 +2776,7 @@ elif st.session_state.current_page == '历史销量':
         fig_trend.add_trace(go.Bar(
             x=monthly_compare['月份'],
             y=monthly_compare[f'{sales_col}_2025'],
-            name='25年销量',
+            name='25年销�?,
             marker_color='#BDE4FC',
             marker_line_width=0,
             marker_cornerradius=6
@@ -2789,7 +2785,7 @@ elif st.session_state.current_page == '历史销量':
         fig_trend.update_layout(
             plot_bgcolor='rgba(0,0,0,0)',
             paper_bgcolor='rgba(0,0,0,0)',
-            yaxis=dict(title='销量', showgrid=False, showline=False, zeroline=False, tickfont=dict(size=11)),
+            yaxis=dict(title='销�?, showgrid=False, showline=False, zeroline=False, tickfont=dict(size=11)),
             xaxis=dict(title='', showgrid=False, showline=False, tickfont=dict(size=12)),
             legend=dict(title='', orientation='h', y=-0.15, x=0.5, xanchor='center', font=dict(size=12)),
             margin=dict(l=50, r=80, t=40, b=60),
@@ -2800,15 +2796,14 @@ elif st.session_state.current_page == '历史销量':
             showlegend=True
         )
         
-        # 添加同比折线（灰绿色虚线）
-        filtered_data = monthly_compare[
+        # 添加同比折线（灰绿色虚线�?        filtered_data = monthly_compare[
             (monthly_compare[f'{sales_col}_2026'] > 0) & 
-            (pd.notna(monthly_compare['增长率'])) & 
-            (abs(monthly_compare['增长率']) != float('inf'))
+            (pd.notna(monthly_compare['增长�?])) & 
+            (abs(monthly_compare['增长�?]) != float('inf'))
         ].copy()
         fig_trend.add_trace(go.Scatter(
             x=filtered_data['月份'],
-            y=filtered_data['增长率'],
+            y=filtered_data['增长�?],
             name='同比',
             mode='lines+markers',
             marker=dict(color='#6B7280', size=6, symbol='circle'),
@@ -2820,10 +2815,10 @@ elif st.session_state.current_page == '历史销量':
         max_sales = max(monthly_compare[f'{sales_col}_2026'].max(), monthly_compare[f'{sales_col}_2025'].max()) if len(monthly_compare) > 0 else 1
         
         for i, row in monthly_compare.iterrows():
-            if row[f'{sales_col}_2026'] > 0 and pd.notna(row['增长率']) and abs(row['增长率']) != float('inf'):
-                arrow = '↑' if row['增长率'] >= 0 else '↓'
-                arrow_color = '#166534' if row['增长率'] >= 0 else '#dc2626'
-                text = f"{arrow} {abs(row['增长率']):.1f}%"
+            if row[f'{sales_col}_2026'] > 0 and pd.notna(row['增长�?]) and abs(row['增长�?]) != float('inf'):
+                arrow = '�? if row['增长�?] >= 0 else '�?
+                arrow_color = '#166534' if row['增长�?] >= 0 else '#dc2626'
+                text = f"{arrow} {abs(row['增长�?]):.1f}%"
                 
                 fig_trend.add_annotation(
                     x=row['月份'],
@@ -2835,7 +2830,7 @@ elif st.session_state.current_page == '历史销量':
 
         fig_trend.update_layout(
             yaxis2=dict(
-                title='增长率 (%)',
+                title='增长�?(%)',
                 overlaying='y',
                 side='right',
                 showgrid=False,
@@ -2852,14 +2847,14 @@ elif st.session_state.current_page == '历史销量':
     with col1:
         card_container = st.container(border=True)
         with card_container:
-            st.markdown("<div class='section-title-purple'>25-26年销量对比（含成长率）</div>", unsafe_allow_html=True)
+            st.markdown("<div class='section-title-purple'>25-26年销量对比（含成长率�?/div>", unsafe_allow_html=True)
             fig_trend = create_trend_chart(monthly_compare, sales_col)
             st.plotly_chart(fig_trend, use_container_width=True)
 
     with col2:
         card_container = st.container(border=True)
         with card_container:
-            st.markdown("<div class='section-title-purple'>26年预算达成分析</div>", unsafe_allow_html=True)
+            st.markdown("<div class='section-title-purple'>26年预算达成分�?/div>", unsafe_allow_html=True)
 
             import plotly.graph_objects as go
             
@@ -2886,7 +2881,7 @@ elif st.session_state.current_page == '历史销量':
             fig_budget.update_layout(
                 plot_bgcolor='rgba(0,0,0,0)',
                 paper_bgcolor='rgba(0,0,0,0)',
-                yaxis=dict(title='销量', showgrid=False, showline=False, zeroline=False, tickfont=dict(size=11)),
+                yaxis=dict(title='销�?, showgrid=False, showline=False, zeroline=False, tickfont=dict(size=11)),
                 xaxis=dict(title='', showgrid=False, showline=False, tickfont=dict(size=12)),
                 legend=dict(title='', orientation='h', y=-0.15, x=0.5, xanchor='center', font=dict(size=12)),
                 margin=dict(l=50, r=80, t=40, b=60),
@@ -2909,8 +2904,7 @@ elif st.session_state.current_page == '历史销量':
                 yaxis='y2'
             ))
             
-            # 配置双Y轴
-            fig_budget.update_layout(
+            # 配置双Y�?            fig_budget.update_layout(
                 yaxis2=dict(
                     title='预算达成 (%)',
                     overlaying='y',
@@ -2922,13 +2916,12 @@ elif st.session_state.current_page == '历史销量':
                 )
             )
             
-            # 在柱形上方添加预算达成率标签（带箭头）
-            max_budget_val = max(monthly_compare[f'{sales_col}_2026'].max(), monthly_compare[budget_col].max()) if len(monthly_compare) > 0 else 1
+            # 在柱形上方添加预算达成率标签（带箭头�?            max_budget_val = max(monthly_compare[f'{sales_col}_2026'].max(), monthly_compare[budget_col].max()) if len(monthly_compare) > 0 else 1
             
             for i, row in monthly_compare.iterrows():
                 if row[f'{sales_col}_2026'] > 0:
                     arrow_color = '#166534' if row['预算达成'] >= 100 else '#dc2626'
-                    arrow = '↑' if row['预算达成'] >= 100 else '↓'
+                    arrow = '�? if row['预算达成'] >= 100 else '�?
                     text = f"{arrow} {row['预算达成']:.1f}%"
                     
                     fig_budget.add_annotation(
@@ -2941,16 +2934,16 @@ elif st.session_state.current_page == '历史销量':
             
             st.plotly_chart(fig_budget, use_container_width=True)
 
-elif st.session_state.current_page == '产量一览':
+elif st.session_state.current_page == '产量一�?:
     st.markdown("""
         <div class='header-card'>
-            <div class='header-title'>产量一览</div>
-            <div class='header-subtitle'>产量数据管理与分析</div>
+            <div class='header-title'>产量一�?/div>
+            <div class='header-subtitle'>产量数据管理与分�?/div>
         </div>
     """, unsafe_allow_html=True)
 
     with st.expander('📊 上传产量数据', expanded=False):
-        uploaded_file = st.file_uploader('选择Excel文件（需包含2025年产量和2026年产量工作表）', type=['xlsx', 'xls'], key='output_upload')
+        uploaded_file = st.file_uploader('选择Excel文件（需包含2025年产量和2026年产量工作表�?, type=['xlsx', 'xls'], key='output_upload')
         
         if uploaded_file is not None:
             try:
@@ -2967,7 +2960,7 @@ elif st.session_state.current_page == '产量一览':
                         df['年份'] = 2026
                     combined_df = pd.concat([combined_df, df], ignore_index=True)
                 
-                st.success(f'✅ 文件上传成功！读取了 {len(sheets)} 个工作表')
+                st.success(f'�?文件上传成功！读取了 {len(sheets)} 个工作表')
                 
                 if 'output_data' not in st.session_state:
                     st.session_state.output_data = combined_df
@@ -2977,17 +2970,17 @@ elif st.session_state.current_page == '产量一览':
                 if st.button('💾 保存数据', key='save_output'):
                     save_path = '产量数据.xlsx'
                     st.session_state.output_data.to_excel(save_path, index=False)
-                    st.success(f'✅ 数据已保存到 {save_path}')
+                    st.success(f'�?数据已保存到 {save_path}')
             
             except Exception as e:
-                st.error(f'❌ 上传失败: {str(e)}')
+                st.error(f'�?上传失败: {str(e)}')
     
     if 'output_data' in st.session_state and not st.session_state.output_data.empty:
         df = st.session_state.output_data.copy()
         
         if '日期' in df.columns:
             df['月份'] = pd.to_datetime(df['日期']).dt.month
-            df['月份'] = df['月份'].apply(lambda x: f'{x}月')
+            df['月份'] = df['月份'].apply(lambda x: f'{x}�?)
         
         st.subheader('🔍 筛选器')
         col1, col2, col3 = st.columns(3)
@@ -2996,7 +2989,7 @@ elif st.session_state.current_page == '产量一览':
             factory_filter = st.multiselect('选择工厂', df['工厂'].unique() if '工厂' in df.columns else [], key='output_factory_filter')
         
         with col2:
-            month_filter = st.multiselect('选择月份', ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'], key='output_month_filter')
+            month_filter = st.multiselect('选择月份', ['1�?, '2�?, '3�?, '4�?, '5�?, '6�?, '7�?, '8�?, '9�?, '10�?, '11�?, '12�?], key='output_month_filter')
         
         with col3:
             focus_filter = st.multiselect('选择工作重心', df['工作重心'].unique() if '工作重心' in df.columns else [], key='output_focus_filter')
@@ -3030,7 +3023,7 @@ elif st.session_state.current_page == '产量一览':
             st.markdown("""
                 <div style="background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 20px; border: 1px solid #e2e8f0;">
                     <div style="background: linear-gradient(135deg, #BDE4FC 0%, #BDE4FC 100%); display: inline-block; padding: 4px 16px; border-radius: 16px; margin-bottom: 16px;">
-                        <span style="font-size: 12px; font-weight: 600; color: #0360EA;">26年</span>
+                        <span style="font-size: 12px; font-weight: 600; color: #0360EA;">26�?/span>
                     </div>
                     <div style="font-size: 28px; font-weight: 700; color: #0360EA;">{:,} 千箱</div>
                 </div>
@@ -3040,7 +3033,7 @@ elif st.session_state.current_page == '产量一览':
             st.markdown("""
                 <div style="background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 20px; border: 1px solid #e2e8f0;">
                     <div style="background: linear-gradient(135deg, #FDE68A 0%, #FDE68A 100%); display: inline-block; padding: 4px 16px; border-radius: 16px; margin-bottom: 16px;">
-                        <span style="font-size: 12px; font-weight: 600; color: #D97706;">25年</span>
+                        <span style="font-size: 12px; font-weight: 600; color: #D97706;">25�?/span>
                     </div>
                     <div style="font-size: 28px; font-weight: 700; color: #D97706;">{:,} 千箱</div>
                 </div>
@@ -3050,7 +3043,7 @@ elif st.session_state.current_page == '产量一览':
             if growth_rate is not None:
                 growth_color = '#059669' if growth_rate >= 0 else '#dc2626'
                 growth_bg = '#DCFCE7' if growth_rate >= 0 else '#FEE2E2'
-                growth_label = '↑ 同期增长' if growth_rate >= 0 else '↓ 同期下降'
+                growth_label = '�?同期增长' if growth_rate >= 0 else '�?同期下降'
                 growth_display = f"{growth_rate:.1f}%"
             else:
                 growth_color = '#64748b'
@@ -3063,18 +3056,18 @@ elif st.session_state.current_page == '产量一览':
                     <div style="background: {}; display: inline-block; padding: 4px 16px; border-radius: 16px; margin-bottom: 16px;">
                         <span style="font-size: 12px; font-weight: 600; color: {};">{}</span>
                     </div>
-                    <div style="font-size: 12px; color: #64748b; margin-bottom: 8px;">同期成长率</div>
+                    <div style="font-size: 12px; color: #64748b; margin-bottom: 8px;">同期成长�?/div>
                     <div style="font-size: 28px; font-weight: 700; color: {};">{}</div>
                 </div>
             """.format(growth_bg, growth_color, growth_label, growth_color, growth_display), unsafe_allow_html=True)
         
-        st.subheader('📊 产量趋势图')
+        st.subheader('📊 产量趋势�?)
         
         col1, col2 = st.columns(2)
         with col1:
-            time_grain = st.selectbox('时间粒度', ['月', '周', '日', '季度'], key='output_time_grain')
+            time_grain = st.selectbox('时间粒度', ['�?, '�?, '�?, '季度'], key='output_time_grain')
         with col2:
-            chart_type = st.selectbox('图表类型', ['柱形图', '折线图', '面积图', '组合图'], key='output_chart_type')
+            chart_type = st.selectbox('图表类型', ['柱形�?, '折线�?, '面积�?, '组合�?], key='output_chart_type')
         
         import plotly.graph_objects as go
         fig_monthly = go.Figure()
@@ -3085,11 +3078,11 @@ elif st.session_state.current_page == '产量一览':
         if '日期' in filtered_df.columns and production_col and '年份' in filtered_df.columns:
             filtered_df['日期'] = pd.to_datetime(filtered_df['日期'])
             
-            if time_grain == '日':
+            if time_grain == '�?:
                 filtered_df['时间维度'] = filtered_df['日期'].dt.strftime('%m-%d')
                 time_order = sorted(filtered_df['时间维度'].unique())
                 
-            elif time_grain == '周':
+            elif time_grain == '�?:
                 filtered_df['时间维度'] = 'W' + filtered_df['日期'].dt.isocalendar().week.astype(str)
                 time_order = sorted(filtered_df['时间维度'].unique())
                 
@@ -3098,18 +3091,18 @@ elif st.session_state.current_page == '产量一览':
                 time_order = ['Q1', 'Q2', 'Q3', 'Q4']
                 
             else:
-                filtered_df['时间维度'] = filtered_df['日期'].dt.month.apply(lambda x: f'{x}月')
-                time_order = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
+                filtered_df['时间维度'] = filtered_df['日期'].dt.month.apply(lambda x: f'{x}�?)
+                time_order = ['1�?, '2�?, '3�?, '4�?, '5�?, '6�?, '7�?, '8�?, '9�?, '10�?, '11�?, '12�?]
             
             time_data = filtered_df.groupby(['时间维度', '年份'])[production_col].sum().unstack().fillna(0)
             time_data = time_data.reindex(time_order)
             
-            if chart_type == '柱形图':
+            if chart_type == '柱形�?:
                 if 2026 in time_data.columns:
                     fig_monthly.add_trace(go.Bar(
                         x=time_data.index,
                         y=time_data[2026],
-                        name='26年',
+                        name='26�?,
                         marker_color='#0360EA',
                         marker_cornerradius=6
                     ))
@@ -3117,18 +3110,18 @@ elif st.session_state.current_page == '产量一览':
                     fig_monthly.add_trace(go.Bar(
                         x=time_data.index,
                         y=time_data[2025],
-                        name='25年',
+                        name='25�?,
                         marker_color='#BDE4FC',
                         marker_cornerradius=6
                     ))
                 fig_monthly.update_layout(barmode='group', bargap=0.15, bargroupgap=0.1)
                 
-            elif chart_type == '折线图':
+            elif chart_type == '折线�?:
                 if 2026 in time_data.columns:
                     fig_monthly.add_trace(go.Scatter(
                         x=time_data.index,
                         y=time_data[2026],
-                        name='26年',
+                        name='26�?,
                         line=dict(color='#0360EA', width=3),
                         mode='lines+markers',
                         marker=dict(size=6)
@@ -3137,18 +3130,18 @@ elif st.session_state.current_page == '产量一览':
                     fig_monthly.add_trace(go.Scatter(
                         x=time_data.index,
                         y=time_data[2025],
-                        name='25年',
+                        name='25�?,
                         line=dict(color='#BDE4FC', width=3),
                         mode='lines+markers',
                         marker=dict(size=6)
                     ))
                     
-            elif chart_type == '面积图':
+            elif chart_type == '面积�?:
                 if 2026 in time_data.columns:
                     fig_monthly.add_trace(go.Scatter(
                         x=time_data.index,
                         y=time_data[2026],
-                        name='26年',
+                        name='26�?,
                         fill='tozeroy',
                         line=dict(color='#0360EA', width=2),
                         fillcolor='rgba(3, 96, 234, 0.15)'
@@ -3157,18 +3150,18 @@ elif st.session_state.current_page == '产量一览':
                     fig_monthly.add_trace(go.Scatter(
                         x=time_data.index,
                         y=time_data[2025],
-                        name='25年',
+                        name='25�?,
                         fill='tozeroy',
                         line=dict(color='#BDE4FC', width=2),
                         fillcolor='rgba(189, 228, 252, 0.3)'
                     ))
                     
-            elif chart_type == '组合图':
+            elif chart_type == '组合�?:
                 if 2026 in time_data.columns:
                     fig_monthly.add_trace(go.Bar(
                         x=time_data.index,
                         y=time_data[2026],
-                        name='26年',
+                        name='26�?,
                         marker_color='#0360EA',
                         marker_cornerradius=6
                     ))
@@ -3176,7 +3169,7 @@ elif st.session_state.current_page == '产量一览':
                     fig_monthly.add_trace(go.Scatter(
                         x=time_data.index,
                         y=time_data[2025],
-                        name='25年',
+                        name='25�?,
                         line=dict(color='#D97706', width=3, dash='dash'),
                         yaxis='y2',
                         mode='lines+markers',
@@ -3186,9 +3179,9 @@ elif st.session_state.current_page == '产量一览':
                                         yaxis2=dict(overlaying='y', side='right'))
             
             x_label = {
-                '日': '日期',
-                '周': '周',
-                '月': '月份',
+                '�?: '日期',
+                '�?: '�?,
+                '�?: '月份',
                 '季度': '季度'
             }[time_grain]
             
@@ -3205,10 +3198,10 @@ elif st.session_state.current_page == '产量一览':
         else:
             st.markdown("<div style='text-align: center; color: #9ca3af; padding-top: 40px;'>数据中缺少必要的列（日期、产量、年份）</div>", unsafe_allow_html=True)
 
-elif st.session_state.current_page == '营业额分析':
+elif st.session_state.current_page == '营业额分�?:
     st.markdown("""
         <div class='header-card'>
-            <div class='header-title'>营业额分析</div>
+            <div class='header-title'>营业额分�?/div>
             <div class='header-subtitle'>天津、河北行销公司数据</div>
         </div>
     """, unsafe_allow_html=True)
@@ -3227,30 +3220,26 @@ elif st.session_state.current_page == '营业额分析':
     def read_revenue_data(file_path):
         xls = pd.ExcelFile(file_path)
         sheet_names = xls.sheet_names
-        # st.write(f"找到工作表: {sheet_names}")
+        # st.write(f"找到工作�? {sheet_names}")
         
-        # 初始化数据
-        tj_actual = {str(i) + '月': 0.0 for i in range(1, 13)}
-        tj_budget = {str(i) + '月': 0.0 for i in range(1, 13)}
-        hb_actual = {str(i) + '月': 0.0 for i in range(1, 13)}
-        hb_budget = {str(i) + '月': 0.0 for i in range(1, 13)}
+        # 初始化数�?        tj_actual = {str(i) + '�?: 0.0 for i in range(1, 13)}
+        tj_budget = {str(i) + '�?: 0.0 for i in range(1, 13)}
+        hb_actual = {str(i) + '�?: 0.0 for i in range(1, 13)}
+        hb_budget = {str(i) + '�?: 0.0 for i in range(1, 13)}
         
         for sheet in sheet_names:
             df = pd.read_excel(xls, sheet_name=sheet)
-            # st.write(f"读取工作表: {sheet}, 行数: {len(df)}, 列: {df.columns.tolist()}")
+            # st.write(f"读取工作�? {sheet}, 行数: {len(df)}, �? {df.columns.tolist()}")
             
-            # 判断是天津还是河北
-            is_tianjin = '天津' in sheet
+            # 判断是天津还是河�?            is_tianjin = '天津' in sheet
             is_hebei = '河北' in sheet
             
             if not is_tianjin and not is_hebei:
-                # 如果工作表名不包含天津或河北，检查是否有公司列
-                if '行销公司' in df.columns or '公司' in df.columns:
+                # 如果工作表名不包含天津或河北，检查是否有公司�?                if '行销公司' in df.columns or '公司' in df.columns:
                     continue
                 continue
             
-            # 检查是否有日期列和预算/实际列
-            if '日期' in df.columns and '预算' in df.columns and '实际' in df.columns:
+            # 检查是否有日期列和预算/实际�?            if '日期' in df.columns and '预算' in df.columns and '实际' in df.columns:
                 for idx, row in df.iterrows():
                     date_val = row['日期']
                     budget_val = pd.to_numeric(row['预算'], errors='coerce')
@@ -3260,16 +3249,15 @@ elif st.session_state.current_page == '营业额分析':
                     month = None
                     if pd.notna(date_val):
                         if hasattr(date_val, 'month'):
-                            month = str(date_val.month) + '月'
+                            month = str(date_val.month) + '�?
                         else:
-                            # 尝试从字符串中解析
-                            date_str = str(date_val)
+                            # 尝试从字符串中解�?                            date_str = str(date_val)
                             if '-' in date_str:
                                 parts = date_str.split('-')
                                 if len(parts) >= 2:
                                     try:
                                         month_num = int(parts[1])
-                                        month = str(month_num) + '月'
+                                        month = str(month_num) + '�?
                                     except:
                                         pass
                     
@@ -3285,7 +3273,7 @@ elif st.session_state.current_page == '营业额分析':
                             if pd.notna(actual_val):
                                 hb_actual[month] = float(actual_val)
             else:
-                st.write(f"  警告: 工作表 {sheet} 缺少日期、预算或实际列")
+                st.write(f"  警告: 工作�?{sheet} 缺少日期、预算或实际�?)
         
         # st.write(f"天津实际数据: {tj_actual}")
         # st.write(f"天津预算数据: {tj_budget}")
@@ -3294,8 +3282,7 @@ elif st.session_state.current_page == '营业额分析':
         
         return tj_actual, tj_budget, hb_actual, hb_budget
     
-    # 上传数据功能和读取状态一行显示
-    upload_cols = st.columns([4, 1])
+    # 上传数据功能和读取状态一行显�?    upload_cols = st.columns([4, 1])
     
     with upload_cols[0]:
         uploaded_file = st.file_uploader(
@@ -3311,7 +3298,7 @@ elif st.session_state.current_page == '营业额分析':
             try:
                 file_size = len(uploaded_file.getbuffer())
                 if file_size == 0:
-                    st.error('❌ 上传失败: 文件为空')
+                    st.error('�?上传失败: 文件为空')
                     st.session_state.upload_error = '文件为空'
                 else:
                     with open(DATA_FILE, 'wb') as f:
@@ -3319,17 +3306,17 @@ elif st.session_state.current_page == '营业额分析':
                 
                     import os
                     if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 0:
-                        st.success(f'✅ 数据上传成功！文件大小: {file_size/1024:.2f} KB')
+                        st.success(f'�?数据上传成功！文件大�? {file_size/1024:.2f} KB')
                         st.session_state.upload_key += 1
                         st.session_state.upload_success = True
                         st.session_state.upload_error = ''
                         st.cache_data.clear()
                         st.rerun()
                     else:
-                        st.error('❌ 上传失败: 文件保存后为空')
-                        st.session_state.upload_error = '文件保存后为空'
+                        st.error('�?上传失败: 文件保存后为�?)
+                        st.session_state.upload_error = '文件保存后为�?
             except Exception as e:
-                error_msg = f'❌ 上传失败: {str(e)}'
+                error_msg = f'�?上传失败: {str(e)}'
                 st.error(error_msg)
                 st.session_state.upload_error = str(e)
     
@@ -3338,15 +3325,15 @@ elif st.session_state.current_page == '营业额分析':
     tj_budget = {}
     hb_actual = {}
     hb_budget = {}
-    months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
+    months = ['1�?, '2�?, '3�?, '4�?, '5�?, '6�?, '7�?, '8�?, '9�?, '10�?, '11�?, '12�?]
     
     try:
         tj_actual, tj_budget, hb_actual, hb_budget = read_revenue_data(DATA_FILE)
         with upload_cols[1]:
-            st.success("✅ 数据读取成功！")
+            st.success("�?数据读取成功�?)
     except Exception as e:
         with upload_cols[1]:
-            st.warning(f'⚠️ 未找到数据文件')
+            st.warning(f'⚠️ 未找到数据文�?)
         st.session_state.upload_error = f'文件读取失败: {str(e)}'
         tj_actual = {m: 0.0 for m in months}
         tj_budget = {m: 0.0 for m in months}
@@ -3360,8 +3347,7 @@ elif st.session_state.current_page == '营业额分析':
         key='revenue_company_filter'
     )
     
-    # 根据筛选器确定最终数据
-    if company_filter == '天津行销':
+    # 根据筛选器确定最终数�?    if company_filter == '天津行销':
         final_tj_a, final_tj_b = tj_actual, tj_budget
         final_hb_a = {m: 0.0 for m in months}
         final_hb_b = {m: 0.0 for m in months}
@@ -3380,12 +3366,11 @@ elif st.session_state.current_page == '营业额分析':
     })
     monthly_data['合计'] = monthly_data[months].sum(axis=1)
     
-    # 按季度汇总
-    quarter_ratios = {
-        '第一季度': ['1月', '2月', '3月'],
-        '第二季度': ['4月', '5月', '6月'],
-        '第三季度': ['7月', '8月', '9月'],
-        '第四季度': ['10月', '11月', '12月']
+    # 按季度汇�?    quarter_ratios = {
+        '第一季度': ['1�?, '2�?, '3�?],
+        '第二季度': ['4�?, '5�?, '6�?],
+        '第三季度': ['7�?, '8�?, '9�?],
+        '第四季度': ['10�?, '11�?, '12�?]
     }
     
     quarter_data = []
@@ -3398,11 +3383,10 @@ elif st.session_state.current_page == '营业额分析':
             '季度': quarter,
             '目标金额': round(target / 100000, 2),
             '完成金额': round(actual / 100000, 2),
-            '达成率': completion
+            '达成�?: completion
         })
     
-    # 准备图表数据 - 预算与实际对比
-    chart_data = pd.DataFrame({'月份': months})
+    # 准备图表数据 - 预算与实际对�?    chart_data = pd.DataFrame({'月份': months})
     chart_data['实际'] = [final_tj_a[m] + final_hb_a[m] for m in months]
     chart_data['预算'] = [final_tj_b[m] + final_hb_b[m] for m in months]
     
@@ -3414,15 +3398,13 @@ elif st.session_state.current_page == '营业额分析':
         {'accent': '#10b981', 'tag': '#d1fae5', 'tag_text': '#059669'}    # 绿色
     ]
     
-    # 卡片和图表并排显示
-    main_cols = st.columns([3, 5])
+    # 卡片和图表并排显�?    main_cols = st.columns([3, 5])
     
-    # 左侧：4个季度卡片
-    with main_cols[0]:
+    # 左侧�?个季度卡�?    with main_cols[0]:
         card_cols = st.columns(4)
         for i, (quarter, style) in enumerate(zip(quarter_data, quarter_styles)):
             with card_cols[i]:
-                rate = max(min(quarter['达成率'], 100), 0)
+                rate = max(min(quarter['达成�?], 100), 0)
                 half_circle_len = 100.53
                 dash_array = f"{half_circle_len * rate / 100:.2f} {half_circle_len:.2f}"
                 st.markdown(f"""
@@ -3433,9 +3415,9 @@ elif st.session_state.current_page == '营业额分析':
                         </div>
                         <div style='flex: 1; display: flex; flex-direction: column; justify-content: flex-start;'>
                             <div style='font-size: 12px; color: #666666; margin-bottom: 4px; text-align: center;'>目标金额</div>
-                            <div style='font-size: 24px; font-weight: 700; margin-bottom: 6px; text-align: center; color: {style['accent']};'>{quarter['目标金额']:.2f}<span style='font-size: 20px; font-weight: 600;'>亿</span></div>
+                            <div style='font-size: 24px; font-weight: 700; margin-bottom: 6px; text-align: center; color: {style['accent']};'>{quarter['目标金额']:.2f}<span style='font-size: 20px; font-weight: 600;'>�?/span></div>
                             <div style='font-size: 12px; color: #666666; margin-bottom: 4px; text-align: center;'>完成金额</div>
-                            <div style='font-size: 24px; font-weight: 700; text-align: center; color: {style['accent']};'>{quarter['完成金额']:.2f}<span style='font-size: 20px; font-weight: 600;'>亿</span></div>
+                            <div style='font-size: 24px; font-weight: 700; text-align: center; color: {style['accent']};'>{quarter['完成金额']:.2f}<span style='font-size: 20px; font-weight: 600;'>�?/span></div>
                         </div>
                         <div style='display: flex; flex-direction: column; align-items: center; margin-top: auto; padding-top: 5px;'>
                             <svg width='80' height='50' viewBox='0 0 80 50'>
@@ -3443,8 +3425,8 @@ elif st.session_state.current_page == '营业额分析':
                                 <path d='M 8 40 A 32 32 0 0 1 72 40' stroke='{style['accent']}' stroke-width='8' fill='none' stroke-linecap='round' stroke-dasharray='{dash_array}' stroke-dashoffset='0'/>
                             </svg>
                             <div style='text-align: center; margin-top: -14px;'>
-                                <div style='font-size: 18px; font-weight: 700; line-height: 1.2; color: {style['accent']};'>{quarter['达成率']}%</div>
-                                <div style='font-size: 10px; color: #999999; line-height: 1.2;'>完成率</div>
+                                <div style='font-size: 18px; font-weight: 700; line-height: 1.2; color: {style['accent']};'>{quarter['达成�?]}%</div>
+                                <div style='font-size: 10px; color: #999999; line-height: 1.2;'>完成�?/div>
                             </div>
                         </div>
                     </div>
@@ -3460,7 +3442,7 @@ elif st.session_state.current_page == '营业额分析':
             fig.add_trace(go.Bar(
                 x=chart_data['月份'],
                 y=chart_data['预算'],
-                name='计划值',
+                name='计划�?,
                 marker_color='rgba(255,255,255,0)',
                 marker_line_color='#f59e0b',
                 marker_line_width=2,
@@ -3471,7 +3453,7 @@ elif st.session_state.current_page == '营业额分析':
             fig.add_trace(go.Bar(
                 x=chart_data['月份'],
                 y=chart_data['实际'],
-                name='实际值',
+                name='实际�?,
                 marker_color='#3b82f6',
                 marker_line_color='#1e40af',
                 marker_line_width=1,
@@ -3506,7 +3488,7 @@ elif st.session_state.current_page == '营业额分析':
             
             fig.update_layout(
                 title=dict(
-                    text='预算与实际对比',
+                    text='预算与实际对�?,
                     font=dict(size=16, weight='bold', color='#1e293b'),
                     x=0.02,
                     y=0.98,
@@ -3542,23 +3524,21 @@ elif st.session_state.current_page == '营业额分析':
     # 底部表格
     st.markdown('<div style="margin-top: 24px;"></div>', unsafe_allow_html=True)
     if not monthly_data.empty:
-        st.markdown('<h3 style="font-size: 20px; font-weight: 600; color: #1e293b; margin-bottom: 4px;">2026年预算实际销额</h3>', unsafe_allow_html=True)
-        st.markdown('<p style="font-size: 14px; color: #64748b; margin-bottom: 16px;">单位：千元</p>', unsafe_allow_html=True)
+        st.markdown('<h3 style="font-size: 20px; font-weight: 600; color: #1e293b; margin-bottom: 4px;">2026年预算实际销�?/h3>', unsafe_allow_html=True)
+        st.markdown('<p style="font-size: 14px; color: #64748b; margin-bottom: 16px;">单位：千�?/p>', unsafe_allow_html=True)
         
         # 转置并格式化表格
         table_html = '<table style="width: 100%; border-collapse: collapse; font-size: 14px; table-layout: fixed;">'
         
-        # 表头 - 蓝色系渐变背景
-        table_html += '<thead><tr>'
+        # 表头 - 蓝色系渐变背�?        table_html += '<thead><tr>'
         table_html += '<th style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); padding: 14px 8px; text-align: center; color: white; font-weight: 600; font-size: 14px; border-radius: 4px 0 0 0; width: 8%;">公司</th>'
-        months_list = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
+        months_list = ['1�?, '2�?, '3�?, '4�?, '5�?, '6�?, '7�?, '8�?, '9�?, '10�?, '11�?, '12�?]
         for m in months_list:
             table_html += f'<th style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); padding: 14px 4px; text-align: center; color: white; font-weight: 600; font-size: 14px; width: 6%;">{m}</th>'
         table_html += '<th style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); padding: 14px 8px; text-align: center; color: white; font-weight: 600; font-size: 14px; border-radius: 0 4px 0 0; width: 8%;">合计</th>'
         table_html += '</tr></thead>'
         
-        # 数据行
-        table_html += '<tbody>'
+        # 数据�?        table_html += '<tbody>'
         row_idx = 0
         for _, row in monthly_data.iterrows():
             row_color = '#ffffff' if row_idx % 2 == 0 else '#f8fafc'
@@ -3597,12 +3577,12 @@ elif st.session_state.current_page == '物料对应关系':
             with open(material_cache_file, 'rb') as f:
                 st.session_state.material_data = pickle.load(f)
         except:
-            st.session_state.material_data = pd.DataFrame(columns=['全国通用物料', '物料号', '物料名称', '对应类型', '备注'])
+            st.session_state.material_data = pd.DataFrame(columns=['全国通用物料', '物料�?, '物料名称', '对应类型', '备注'])
     
     if 'new_mapping' not in st.session_state:
         st.session_state.new_mapping = {
             '全国通用物料': '',
-            '物料号': '',
+            '物料�?: '',
             '物料名称': '',
             '对应类型': '',
             '备注': ''
@@ -3613,7 +3593,7 @@ elif st.session_state.current_page == '物料对应关系':
     with main_cols[0]:
         st.markdown("""
             <div style='background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); padding: 24px;'>
-                <div style='font-size: 16px; font-weight: 600; color: #1e293b; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0;'>📁 上传对应关系表</div>
+                <div style='font-size: 16px; font-weight: 600; color: #1e293b; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0;'>📁 上传对应关系�?/div>
             """, unsafe_allow_html=True)
         
         uploaded_file = st.file_uploader('上传Excel文件', type=['xlsx', 'xls'], label_visibility='collapsed')
@@ -3623,7 +3603,7 @@ elif st.session_state.current_page == '物料对应关系':
                 st.session_state.material_data = df_upload
                 with open(material_cache_file, 'wb') as f:
                     pickle.dump(st.session_state.material_data, f)
-                st.success('数据上传成功！')
+                st.success('数据上传成功�?)
                 st.rerun()
             except Exception as e:
                 st.error(f'上传失败: {str(e)}')
@@ -3631,13 +3611,13 @@ elif st.session_state.current_page == '物料对应关系':
         if not st.session_state.material_data.empty:
             st.markdown(f"""
                 <div style='margin-top: 16px; padding: 12px 16px; background: #f0fdf4; border-radius: 8px;'>
-                    <div style='font-size: 14px; color: #16a34a;'>✓ 已加载 {len(st.session_state.material_data)} 条对应关系</div>
+                    <div style='font-size: 14px; color: #16a34a;'>�?已加�?{len(st.session_state.material_data)} 条对应关�?/div>
                 </div>
             """, unsafe_allow_html=True)
         else:
             st.markdown("""
                 <div style='margin-top: 16px; padding: 12px 16px; background: #fef3c7; border-radius: 8px;'>
-                    <div style='font-size: 14px; color: #d97706;'>提示：请先上传对应关系表或添加新的对应关系</div>
+                    <div style='font-size: 14px; color: #d97706;'>提示：请先上传对应关系表或添加新的对应关�?/div>
                 </div>
             """, unsafe_allow_html=True)
         
@@ -3646,17 +3626,17 @@ elif st.session_state.current_page == '物料对应关系':
     with main_cols[1]:
         st.markdown("""
             <div style='background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); padding: 24px;'>
-                <div style='font-size: 16px; font-weight: 600; color: #1e293b; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0;'>➕ 新增对应关系</div>
+                <div style='font-size: 16px; font-weight: 600; color: #1e293b; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0;'>�?新增对应关系</div>
             """, unsafe_allow_html=True)
         
-        st.session_state.new_mapping['全国通用物料'] = st.text_input('全国通用物料', st.session_state.new_mapping['全国通用物料'], label_visibility='collapsed', placeholder='如：成品-PET500*15入冰红茶柠檬味')
-        st.session_state.new_mapping['物料号'] = st.text_input('物料号', st.session_state.new_mapping['物料号'], label_visibility='collapsed', placeholder='如：10012345')
+        st.session_state.new_mapping['全国通用物料'] = st.text_input('全国通用物料', st.session_state.new_mapping['全国通用物料'], label_visibility='collapsed', placeholder='如：成品-PET500*15入冰红茶柠檬�?)
+        st.session_state.new_mapping['物料�?] = st.text_input('物料�?, st.session_state.new_mapping['物料�?], label_visibility='collapsed', placeholder='如：10012345')
         st.session_state.new_mapping['物料名称'] = st.text_input('物料名称', st.session_state.new_mapping['物料名称'], label_visibility='collapsed', placeholder='物料详细名称')
         st.session_state.new_mapping['对应类型'] = st.selectbox('对应类型', ['口味', '容量', '规格', '包装', '其他'], index=0, label_visibility='collapsed')
         st.session_state.new_mapping['备注'] = st.text_input('备注', st.session_state.new_mapping['备注'], label_visibility='collapsed', placeholder='其他说明')
         
         if st.button('添加对应关系', use_container_width=True):
-            if st.session_state.new_mapping['全国通用物料'] and st.session_state.new_mapping['物料号']:
+            if st.session_state.new_mapping['全国通用物料'] and st.session_state.new_mapping['物料�?]:
                 new_row = pd.DataFrame([st.session_state.new_mapping])
                 st.session_state.material_data = pd.concat([st.session_state.material_data, new_row], ignore_index=True)
                 with open(material_cache_file, 'wb') as f:
@@ -3664,13 +3644,13 @@ elif st.session_state.current_page == '物料对应关系':
                 
                 st.session_state.new_mapping = {
                     '全国通用物料': '',
-                    '物料号': '',
+                    '物料�?: '',
                     '物料名称': '',
                     '对应类型': '口味',
                     '备注': ''
                 }
                 
-                st.success('对应关系添加成功！')
+                st.success('对应关系添加成功�?)
                 st.rerun()
             else:
                 st.error('请填写全国通用物料和物料号')
@@ -3703,13 +3683,13 @@ elif st.session_state.current_page == '物料对应关系':
             st.markdown(f"""
                 <div style='text-align: center; padding: 16px; background: #f0fdf4; border-radius: 8px;'>
                     <div style='font-size: 24px; font-weight: 700; color: #16a34a;'>{unique_materials}</div>
-                    <div style='font-size: 12px; color: #64748b; margin-top: 4px;'>唯一物料数</div>
+                    <div style='font-size: 12px; color: #64748b; margin-top: 4px;'>唯一物料�?/div>
                 </div>
             """, unsafe_allow_html=True)
         
         with stats_cols[2]:
-            if '物料号' in st.session_state.material_data.columns:
-                unique_items = st.session_state.material_data['物料号'].nunique()
+            if '物料�? in st.session_state.material_data.columns:
+                unique_items = st.session_state.material_data['物料�?].nunique()
             elif '物料' in st.session_state.material_data.columns:
                 unique_items = st.session_state.material_data['物料'].nunique()
             else:
@@ -3717,7 +3697,7 @@ elif st.session_state.current_page == '物料对应关系':
             st.markdown(f"""
                 <div style='text-align: center; padding: 16px; background: #fef3c7; border-radius: 8px;'>
                     <div style='font-size: 24px; font-weight: 700; color: #d97706;'>{unique_items}</div>
-                    <div style='font-size: 12px; color: #64748b; margin-top: 4px;'>物料数</div>
+                    <div style='font-size: 12px; color: #64748b; margin-top: 4px;'>物料�?/div>
                 </div>
             """, unsafe_allow_html=True)
         
@@ -3731,7 +3711,7 @@ elif st.session_state.current_page == '物料对应关系':
             st.markdown(f"""
                 <div style='text-align: center; padding: 16px; background: #fce7f3; border-radius: 8px;'>
                     <div style='font-size: 24px; font-weight: 700; color: #ec4899;'>{len(type_counts)}</div>
-                    <div style='font-size: 12px; color: #64748b; margin-top: 4px;'>类型数</div>
+                    <div style='font-size: 12px; color: #64748b; margin-top: 4px;'>类型�?/div>
                 </div>
             """, unsafe_allow_html=True)
         
@@ -3771,12 +3751,11 @@ elif st.session_state.current_page == '物料对应关系':
         
         st.markdown("</div>", unsafe_allow_html=True)
 
-# 口味深度分析模态框（放在页面末尾，确保正确覆盖整个页面）
-if 'show_flavor_analysis' not in st.session_state:
+# 口味深度分析模态框（放在页面末尾，确保正确覆盖整个页面�?if 'show_flavor_analysis' not in st.session_state:
     st.session_state.show_flavor_analysis = False
 
 if st.session_state.show_flavor_analysis:
-    current_flavor = st.session_state.get('flavor', '冰红茶')
+    current_flavor = st.session_state.get('flavor', '冰红�?)
     project_filter = st.session_state.get('current_analysis_project', '全部')
     product30_filter = st.session_state.get('current_analysis_product30', '全部')
     product20_filter = st.session_state.get('current_analysis_product20', '全部')
@@ -3889,7 +3868,7 @@ if st.session_state.show_flavor_analysis:
                             <div style="text-align: center; padding: 40px 20px;">
                                 <div style="font-size: 48px; margin-bottom: 16px;">📊</div>
                                 <div style="font-size: 18px; font-weight: 600; color: #374151; margin-bottom: 8px;">暂无分析数据</div>
-                                <div style="color: #64748b; font-size: 14px;">当前筛选条件""" + analysis_title + """暂未配置分析数据</div>
+                                <div style="color: #64748b; font-size: 14px;">当前筛选条�?"" + analysis_title + """暂未配置分析数据</div>
                             </div>
                         </div>
                         <div style="padding: 16px 24px; border-top: 1px solid #e2e8f0; text-align: center;">
@@ -3905,28 +3884,28 @@ if st.session_state.show_flavor_analysis:
                 </div>
             """, unsafe_allow_html=True)
         else:
-            dept_flavor_df = flavor_df.groupby('营业部').agg({
+            dept_flavor_df = flavor_df.groupby('营业�?).agg({
                 '需求量': 'sum',
                 '月累排单': 'sum',
-                '预算销量': 'sum'
+                '预算销�?: 'sum'
             }).reset_index()
             
             dept_flavor_df['需求达成率'] = dept_flavor_df.apply(lambda row: (row['月累排单'] / row['需求量']) * 100 if row['需求量'] > 0 else 0, axis=1)
             
             total_demand = dept_flavor_df['需求量'].sum()
             total_order = dept_flavor_df['月累排单'].sum()
-            total_budget = dept_flavor_df['预算销量'].sum()
+            total_budget = dept_flavor_df['预算销�?].sum()
             
             avg_demand_rate = (total_order / total_demand) * 100 if total_demand > 0 else 0
             avg_budget_rate = (total_order / total_budget) * 100 if total_budget > 0 else 0
             
             abnormal_depts = []
             for _, row in dept_flavor_df.iterrows():
-                dept_name = row['营业部']
+                dept_name = row['营业�?]
                 demand_rate = row['需求达成率']
                 
                 if demand_rate > 0 and demand_rate < avg_demand_rate:
-                    cap_df = flavor_df[flavor_df['营业部'] == dept_name].groupby('容量').agg({
+                    cap_df = flavor_df[flavor_df['营业�?] == dept_name].groupby('容量').agg({
                         '需求量': 'sum',
                         '月累排单': 'sum'
                     }).reset_index()
@@ -3949,14 +3928,14 @@ if st.session_state.show_flavor_analysis:
                         'maxDiff': max_diff
                     })
             
-            modal_html = '<div style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:center;z-index:9999;" onclick="window.location.reload();"><div style="background:white;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-width:900px;width:90%;max-height:85vh;overflow-y:auto;" onclick="event.stopPropagation();"><div style="padding: 24px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; border-radius: 12px 12px 0 0;"><div style="font-size: 18px; font-weight: 600;">🍦 达成分析报告</div><div style="font-size: 12px; opacity: 0.85; margin-top: 4px;">' + analysis_title + ' 分析</div></div><div style="padding: 24px;"><div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 12px; padding: 20px; margin-bottom: 24px; border: 1px solid #f59e0b;"><div style="display: flex; justify-content: space-between; align-items: center;"><div><div style="font-size: 14px; color: #92400e; font-weight: 500; margin-bottom: 4px;">🍦 分析对象</div><div style="font-size: 24px; color: #78350f; font-weight: 700;">' + analysis_title + '</div></div><div style="text-align: right; margin-right: 20px;"><div style="font-size: 14px; color: #92400e; font-weight: 500; margin-bottom: 4px;">平均需求达成率</div><div style="font-size: 32px; color: #b45309; font-weight: 700;">' + str(round(avg_demand_rate, 1)) + '%</div></div><div style="text-align: right;"><div style="font-size: 14px; color: #92400e; font-weight: 500; margin-bottom: 4px;">平均预算达成率</div><div style="font-size: 32px; color: #b45309; font-weight: 700;">' + str(round(avg_budget_rate, 1)) + '%</div></div></div></div>'
+            modal_html = '<div style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:center;z-index:9999;" onclick="window.location.reload();"><div style="background:white;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-width:900px;width:90%;max-height:85vh;overflow-y:auto;" onclick="event.stopPropagation();"><div style="padding: 24px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; border-radius: 12px 12px 0 0;"><div style="font-size: 18px; font-weight: 600;">🍦 达成分析报告</div><div style="font-size: 12px; opacity: 0.85; margin-top: 4px;">' + analysis_title + ' 分析</div></div><div style="padding: 24px;"><div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 12px; padding: 20px; margin-bottom: 24px; border: 1px solid #f59e0b;"><div style="display: flex; justify-content: space-between; align-items: center;"><div><div style="font-size: 14px; color: #92400e; font-weight: 500; margin-bottom: 4px;">🍦 分析对象</div><div style="font-size: 24px; color: #78350f; font-weight: 700;">' + analysis_title + '</div></div><div style="text-align: right; margin-right: 20px;"><div style="font-size: 14px; color: #92400e; font-weight: 500; margin-bottom: 4px;">平均需求达成率</div><div style="font-size: 32px; color: #b45309; font-weight: 700;">' + str(round(avg_demand_rate, 1)) + '%</div></div><div style="text-align: right;"><div style="font-size: 14px; color: #92400e; font-weight: 500; margin-bottom: 4px;">平均预算达成�?/div><div style="font-size: 32px; color: #b45309; font-weight: 700;">' + str(round(avg_budget_rate, 1)) + '%</div></div></div></div>'
 
-            modal_html += '<div style="font-size: 16px; font-weight: 600; color: #334155; margin-bottom: 16px; padding-left: 12px; border-left: 4px solid #3b82f6;">📊 各营业部达成率与平均指标比较</div><div style="font-size: 13px; color: #64748b; margin-bottom: 16px; padding-left: 12px;">核心分析：低于平均的营业部，需进一步拆解原因（点击数字查看容量明细）</div><div style="overflow-x: auto;"><table style="width:100%;border-collapse:collapse;border-radius:8px;overflow:hidden;margin-bottom:24px;"><thead><tr style="background-color:#f8fafc;"><th style="padding:12px 14px;text-align:left;font-size:11px;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">营业部名称</th><th style="padding:12px 14px;text-align:right;font-size:11px;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">排单需求达成率（%）</th><th style="padding:12px 14px;text-align:right;font-size:11px;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">排单预算达成率（%）</th></tr></thead><tbody>'
+            modal_html += '<div style="font-size: 16px; font-weight: 600; color: #334155; margin-bottom: 16px; padding-left: 12px; border-left: 4px solid #3b82f6;">📊 各营业部达成率与平均指标比较</div><div style="font-size: 13px; color: #64748b; margin-bottom: 16px; padding-left: 12px;">核心分析：低于平均的营业部，需进一步拆解原因（点击数字查看容量明细�?/div><div style="overflow-x: auto;"><table style="width:100%;border-collapse:collapse;border-radius:8px;overflow:hidden;margin-bottom:24px;"><thead><tr style="background-color:#f8fafc;"><th style="padding:12px 14px;text-align:left;font-size:11px;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">营业部名�?/th><th style="padding:12px 14px;text-align:right;font-size:11px;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">排单需求达成率�?�?/th><th style="padding:12px 14px;text-align:right;font-size:11px;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">排单预算达成率（%�?/th></tr></thead><tbody>'
 
             for _, row in dept_flavor_df.iterrows():
-                dept_name = row['营业部']
+                dept_name = row['营业�?]
                 demand_rate = row['需求达成率']
-                budget_rate = (row['月累排单'] / row['预算销量']) * 100 if row['预算销量'] > 0 else 0
+                budget_rate = (row['月累排单'] / row['预算销�?]) * 100 if row['预算销�?] > 0 else 0
                 
                 demand_color = '#ef4444' if demand_rate < avg_demand_rate else '#10b981'
                 budget_color = '#ef4444' if budget_rate < avg_budget_rate else '#10b981'
@@ -3965,14 +3944,14 @@ if st.session_state.show_flavor_analysis:
 
             modal_html += '</tbody><tfoot><tr style="background-color:#f8fafc;"><td style="padding:12px 14px;font-size:12px;color:#64748b;font-weight:600;">平均值参考线</td><td style="padding:12px 14px;font-size:12px;color:#64748b;font-weight:600;text-align:right;border-top:2px solid #f59e0b;">' + str(round(avg_demand_rate, 1)) + '%</td><td style="padding:12px 14px;font-size:12px;color:#64748b;font-weight:600;text-align:right;border-top:2px solid #f59e0b;">' + str(round(avg_budget_rate, 1)) + '%</td></tr></tfoot></table></div>'
             
-            modal_html += '<div style="font-size: 16px; font-weight: 600; color: #334155; margin-bottom: 16px; padding-left: 12px; border-left: 4px solid #ef4444;">📉 低于平均营业部分析</div>'
+            modal_html += '<div style="font-size: 16px; font-weight: 600; color: #334155; margin-bottom: 16px; padding-left: 12px; border-left: 4px solid #ef4444;">📉 低于平均营业部分�?/div>'
 
             st.markdown(modal_html, unsafe_allow_html=True)
             
             for _, row in dept_flavor_df.iterrows():
-                dept_name = row['营业部']
+                dept_name = row['营业�?]
                 demand_rate = row['需求达成率']
-                budget_rate = (row['月累排单'] / row['预算销量']) * 100 if row['预算销量'] > 0 else 0
+                budget_rate = (row['月累排单'] / row['预算销�?]) * 100 if row['预算销�?] > 0 else 0
                 
                 col1, col2, col3 = st.columns([3, 1, 1])
                 with col1:
@@ -3994,7 +3973,7 @@ if st.session_state.show_flavor_analysis:
             if st.session_state.show_capacity_detail:
                 selected_dept = st.session_state.get('selected_dept', '')
                 if selected_dept:
-                    dept_capacity_df = flavor_df[flavor_df['营业部'] == selected_dept].groupby('容量').agg({
+                    dept_capacity_df = flavor_df[flavor_df['营业�?] == selected_dept].groupby('容量').agg({
                         '需求量': 'sum',
                         '月累排单': 'sum'
                     }).reset_index()
@@ -4074,17 +4053,58 @@ if st.session_state.show_flavor_analysis:
                     """, unsafe_allow_html=True)
 
             if not abnormal_depts:
-                modal_html += '<div style="text-align: center; padding: 40px 20px;"><div style="font-size: 60px; margin-bottom: 20px;">✅</div><div style="font-size: 20px; font-weight: 600; color: #10b981; margin-bottom: 10px;">所有营业部均高于平均达成率，无异常</div><div style="color: #64748b; font-size: 14px;">当前筛选条件下该口味运营状况良好</div></div>'
+                modal_html += '<div style="text-align: center; padding: 40px 20px;"><div style="font-size: 60px; margin-bottom: 20px;">�?/div><div style="font-size: 20px; font-weight: 600; color: #10b981; margin-bottom: 10px;">所有营业部均高于平均达成率，无异常</div><div style="color: #64748b; font-size: 14px;">当前筛选条件下该口味运营状况良�?/div></div>'
             else:
-                modal_html += '<div style="overflow-x: auto;"><table style="width:100%;border-collapse:collapse;border-radius:8px;overflow:hidden;margin-bottom:24px;"><thead><tr style="background-color:#f8fafc;"><th style="padding:12px 14px;text-align:left;font-size:11px;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">营业部名称</th><th style="padding:12px 14px;text-align:left;font-size:11px;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">需求达成率（%）</th><th style="padding:12px 14px;text-align:left;font-size:11px;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">与平均值的差距（百分点）</th><th style="padding:12px 14px;text-align:left;font-size:11px;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">差异最大的容量规格</th></tr></thead><tbody>'
+                modal_html += '<div style="overflow-x: auto;"><table style="width:100%;border-collapse:collapse;border-radius:8px;overflow:hidden;margin-bottom:24px;"><thead><tr style="background-color:#f8fafc;"><th style="padding:12px 14px;text-align:left;font-size:11px;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">营业部名�?/th><th style="padding:12px 14px;text-align:left;font-size:11px;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">需求达成率�?�?/th><th style="padding:12px 14px;text-align:left;font-size:11px;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">与平均值的差距（百分点�?/th><th style="padding:12px 14px;text-align:left;font-size:11px;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">差异最大的容量规格</th></tr></thead><tbody>'
                 
                 for dept in abnormal_depts:
                     diff_text = str(round(dept['diff'], 1))
-                    capacity_info = dept['maxCapacity'] + '，差额' + str(round(dept['maxDiff'], 1)) if dept['maxDiff'] > 0 else '无有效规格差异'
+                    capacity_info = dept['maxCapacity'] + '，差�? + str(round(dept['maxDiff'], 1)) if dept['maxDiff'] > 0 else '无有效规格差�?
                     modal_html += '<tr><td style="padding:12px 14px;font-size:12px;color:#374151;border-bottom:1px solid #f1f5f9;font-weight:500;">' + dept['name'] + '</td><td style="padding:12px 14px;font-size:12px;color:#ef4444;border-bottom:1px solid #f1f5f9;font-weight:600;">' + str(round(dept['demandRate'], 1)) + '%</td><td style="padding:12px 14px;font-size:12px;color:#ef4444;border-bottom:1px solid #f1f5f9;font-weight:600;">' + diff_text + '</td><td style="padding:12px 14px;font-size:12px;color:#374151;border-bottom:1px solid #f1f5f9;">' + capacity_info + '</td></tr>'
                 
                 modal_html += '</tbody></table></div>'
             
-            modal_html += '</div></div></div>'
+            modal_html += '<div style="padding: 16px 24px; border-top: 1px solid #e2e8f0; display: flex; gap: 12px;"><button onclick="window.location.reload();" style="flex: 1; padding: 12px 24px; background: linear-gradient(135deg, #64748b 0%, #475569 100%); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;">关闭</button></div></div></div></div>'
             
             st.markdown(modal_html, unsafe_allow_html=True)
+            
+            col_push = st.columns([1, 2, 1])
+            with col_push[1]:
+                if st.button('📤 推送至飞书群', use_container_width=True, key='push_to_feishu'):
+                    feishu_webhook = 'https://open.feishu.cn/open-apis/bot/v2/hook/97964ac4-a4f0-4c5d-9e1b-bbc2dd9324f6'
+                    
+                    feishu_msg = f"""
+🍦 **达成分析报告**
+
+**分析对象**: {analysis_title}
+
+📊 **平均指标**:
+- 平均需求达成率: {round(avg_demand_rate, 1)}%
+- 平均预算达成率: {round(avg_budget_rate, 1)}%
+
+📉 **低于平均的营业部**:
+                    """
+                    
+                    if not abnormal_depts:
+                        feishu_msg += "所有营业部均高于平均达成率，无异常！"
+                    else:
+                        for dept in abnormal_depts[:5]:
+                            feishu_msg += f"- {dept['name']}: 需求达成率 {round(dept['demandRate'], 1)}%，低于平均 {abs(round(dept['diff'], 1))} 个百分点\n"
+                        if len(abnormal_depts) > 5:
+                            feishu_msg += f"... 还有 {len(abnormal_depts) - 5} 个营业部低于平均"
+                    
+                    payload = {
+                        "msg_type": "text",
+                        "content": {
+                            "text": feishu_msg
+                        }
+                    }
+                    
+                    try:
+                        response = requests.post(feishu_webhook, json=payload)
+                        if response.status_code == 200:
+                            st.success("✅ 报告已成功推送至飞书群！")
+                        else:
+                            st.error(f"❌ 推送失败，错误码: {response.status_code}")
+                    except Exception as e:
+                        st.error(f"❌ 推送失败，错误信息: {str(e)}")
