@@ -1756,7 +1756,7 @@ if st.session_state.current_page == '需求分析':
         table_html += "<div style='overflow-x: auto; max-height: 400px; overflow-y: auto;'>"
         table_html += "<table class='custom-table'>"
         table_html += "<thead><tr>"
-        table_html += "<th>容量</th><th>需求量</th><th>月累排单</th><th>缺口量</th><th>缺口率</th><th>同期<br>销量</th><th>预算<br>销量</th><th>预算<br>达成</th><th>较同期<br>成长</th>"
+        table_html += "<th>容量</th><th>需求量</th><th>预算<br>销量</th><th>同期<br>销量</th><th>预算<br>达成</th><th>较同期<br>成长</th><th>月累<br>排单</th><th>缺口量</th><th>缺口率</th>"
         table_html += "</tr></thead><tbody>"
 
         for _, row in capacity_df.iterrows():
@@ -1776,13 +1776,13 @@ if st.session_state.current_page == '需求分析':
             table_html += "<tr>"
             table_html += f"<td>{row['容量']}</td>"
             table_html += f"<td>{row['需求量']:.2f}</td>"
+            table_html += f"<td>{row['预算销量']:.2f}</td>"
+            table_html += f"<td>{row['去年同期销量']:.2f}</td>"
+            table_html += f"<td>{budget_display}</td>"
+            table_html += f"<td style='{growth_style}'>{growth_display}</td>"
             table_html += f"<td>{row['月累排单']:.2f}</td>"
             table_html += f"<td>{gap_amount:.2f}</td>"
             table_html += f"<td style='{gap_style}'>{gap_rate_display}</td>"
-            table_html += f"<td>{row['去年同期销量']:.2f}</td>"
-            table_html += f"<td>{row['预算销量']:.2f}</td>"
-            table_html += f"<td>{budget_display}</td>"
-            table_html += f"<td style='{growth_style}'>{growth_display}</td>"
             table_html += "</tr>"
 
         table_html += "</tbody></table></div></div>"
