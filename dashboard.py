@@ -4,6 +4,75 @@ import plotly.express as px
 
 st.set_page_config(layout="wide", page_title="产销协调")
 
+# 手机端适配样式
+st.markdown("""
+<style>
+/* 手机端适配 */
+@media (max-width: 768px) {
+    /* 缩小侧边栏宽度 */
+    [data-testid="stSidebar"] {
+        width: 250px !important;
+    }
+    
+    /* 调整主内容区域 */
+    .main .block-container {
+        padding: 1rem !important;
+    }
+    
+    /* 调整卡片间距 */
+    [data-testid="stHorizontalBlock"] {
+        gap: 0.5rem !important;
+    }
+    
+    /* 调整垂直块间距 */
+    [data-testid="stVerticalBlock"] {
+        gap: 0.5rem !important;
+    }
+    
+    /* 调整表格字体 */
+    .dataframe {
+        font-size: 12px !important;
+    }
+    
+    /* 调整按钮大小 */
+    .stButton > button {
+        padding: 0.5rem 1rem !important;
+        font-size: 14px !important;
+    }
+    
+    /* 调整选择器高度 */
+    .stSelectbox > div > div {
+        height: 40px !important;
+    }
+    
+    /* 调整多选器高度 */
+    .stMultiSelect > div > div {
+        min-height: 40px !important;
+    }
+    
+    /* 调整图表容器 */
+    .js-plotly-plot .plotly, .js-plotly-plot .plotly div {
+        width: 100% !important;
+    }
+}
+
+/* 隐藏滚动条 */
+::-webkit-scrollbar {
+    height: 6px;
+    width: 6px;
+}
+::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 3px;
+}
+
+/* 调整整体字体 */
+body {
+    font-size: 14px;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # 添加隐藏按钮的CSS
 st.markdown("""
 <style>
