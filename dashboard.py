@@ -84,7 +84,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 初始化会话状态（仅在首次运行时初始化�?if 'show_focus_report' not in st.session_state:
+# 初始化会话状态（仅在首次运行时初始化）
+if 'show_focus_report' not in st.session_state:
     st.session_state.show_focus_report = False
 
 # 调试：打印状态（已注释）
