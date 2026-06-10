@@ -92,7 +92,7 @@ if 'show_focus_report' not in st.session_state:
 # st.write(f"Debug: show_focus_report = {st.session_state.show_focus_report}")
 
 def save_page_state(page_name):
-    if page_name == '需求分�?:
+    if page_name == '需求分析':
         state_keys = [
             'region', 'dept', 'project', 'product30', 'product20',
             'capacity', 'flavor', 'package', 'show_flavor_analysis',
