@@ -2039,8 +2039,7 @@ if st.session_state.current_page == '需求分析':
 elif st.session_state.current_page == '历史销量':
     SAVE_FILE = 'history_data_cache.pkl'
     
-    @st.cache_data
-    def reshape_data_cached(df):
+    def reshape_data(df):
         if df.empty:
             return df
         
@@ -2064,9 +2063,6 @@ elif st.session_state.current_page == '历史销量':
             return df_melted
         
         return df
-
-    def reshape_data(df):
-        return reshape_data_cached(df)
 
     def load_history_data(file_path):
         xls = pd.ExcelFile(file_path)
@@ -2125,6 +2121,13 @@ elif st.session_state.current_page == '历史销量':
         return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), {}
 
     df_2026_actual, df_2025_actual, df_2026_budget, material_flavor_map = load_saved_data()
+    
+    if df_2026_actual.empty and df_2025_actual.empty and df_2026_budget.empty:
+        import os
+        if os.path.exists('2026销量.xlsx'):
+            df_2026_actual, df_2025_actual, df_2026_budget, material_flavor_map = load_history_data('2026销量.xlsx')
+            save_data(df_2026_actual, df_2025_actual, df_2026_budget, material_flavor_map)
+            st.success("已从默认数据文件加载数据！")
 
     st.markdown("""
         <div class='header-card-history'>
@@ -2137,9 +2140,11 @@ elif st.session_state.current_page == '历史销量':
         uploaded_file = st.file_uploader("选择Excel文件（需包含2026年实际销量、2025年实际销量、2026年预算销量sheet）", 
                                         type=['xlsx'], key='history_uploader_new')
         if uploaded_file is not None:
-            reshape_data_cached.clear()
             load_data.clear()
             load_mappings.clear()
+            precompute_flavor_materials.clear()
+            precompute_capacity_materials.clear()
+            precompute_package_materials.clear()
             
             df_2026_actual, df_2025_actual, df_2026_budget, material_flavor_map = load_history_data(uploaded_file)
             save_data(df_2026_actual, df_2025_actual, df_2026_budget, material_flavor_map)
@@ -2167,6 +2172,8 @@ elif st.session_state.current_page == '历史销量':
     
     material_to_universal = material_map.get('material_to_universal', {})
     universal_to_attrs = material_map.get('universal_to_attrs', {})
+    
+    print(f"物料映射状态: material_to_universal大小={len(material_to_universal)}, universal_to_attrs大小={len(universal_to_attrs)}")
     
     if material_map.get('flavors'):
         available_flavors = material_map['flavors']
@@ -2372,7 +2379,7 @@ elif st.session_state.current_page == '历史销量':
                 break
         if sales_col is None:
             numeric_cols = df_2026_actual.select_dtypes(include=[int, float]).columns
-            sales_col = numeric_cols[0] if len(numeric_cols) > 0 else (df_2026_actual.columns[-1] if len(df_2026_actual.columns) > 0 else '销量')
+            sales_col = numeric_cols[0] if len(numeric_cols) > 0 else (df_2026_actual.columns[-1] if len(df_2026_actual.columns) > 0 else None)
     
     budget_col = None
     if not df_2026_budget.empty:
@@ -2468,23 +2475,35 @@ elif st.session_state.current_page == '历史销量':
         """, unsafe_allow_html=True)
 
     def add_capacity_from_material(df, material_col, material_to_universal, universal_to_attrs):
-        if df.empty or material_col is None:
+        if df.empty or material_col is None or material_col not in df.columns:
             return df
         
         df_copy = df.copy()
         
         def get_capacity(material):
+            if pd.isna(material):
+                return None
             material_str = str(material).strip()
             if material_str in material_to_universal:
                 universal = material_to_universal[material_str]
                 if universal in universal_to_attrs:
                     capacities = universal_to_attrs[universal].get('capacities', [])
                     return capacities[0] if capacities else None
+            else:
+                for key in material_to_universal:
+                    if key in material_str or material_str in key:
+                        universal = material_to_universal[key]
+                        if universal in universal_to_attrs:
+                            capacities = universal_to_attrs[universal].get('capacities', [])
+                            return capacities[0] if capacities else None
             return None
         
         df_copy['容量'] = df_copy[material_col].apply(get_capacity)
         return df_copy
 
+    material_to_universal = material_map.get('material_to_universal', {})
+    universal_to_attrs = material_map.get('universal_to_attrs', {})
+    
     filtered_2026_with_capacity = add_capacity_from_material(filtered_2026, material_col, material_to_universal, universal_to_attrs)
     filtered_2025_with_capacity = add_capacity_from_material(filtered_2025, material_col, material_to_universal, universal_to_attrs)
     filtered_budget_with_capacity = add_capacity_from_material(filtered_budget, material_col, material_to_universal, universal_to_attrs)
@@ -2499,7 +2518,7 @@ elif st.session_state.current_page == '历史销量':
             has_capacity_2026 = '容量' in filtered_2026_with_capacity.columns and filtered_2026_with_capacity['容量'].notna().any()
             has_capacity_2025 = '容量' in filtered_2025_with_capacity.columns and filtered_2025_with_capacity['容量'].notna().any()
             
-            if has_capacity_2026 and has_capacity_2025:
+            if has_capacity_2026 and has_capacity_2025 and sales_col and sales_col in filtered_2026_with_capacity.columns and sales_col in filtered_2025_with_capacity.columns:
                 capacity_growth_df = pd.DataFrame()
                 capacity_2026 = filtered_2026_with_capacity[filtered_2026_with_capacity['容量'].notna()].groupby('容量')[sales_col].sum().reset_index()
                 capacity_2025 = filtered_2025_with_capacity[filtered_2025_with_capacity['容量'].notna()].groupby('容量')[sales_col].sum().reset_index()
@@ -2580,7 +2599,7 @@ elif st.session_state.current_page == '历史销量':
             has_capacity_actual = '容量' in filtered_2026_with_capacity.columns and filtered_2026_with_capacity['容量'].notna().any()
             has_capacity_budget = '容量' in filtered_budget_with_capacity.columns and filtered_budget_with_capacity['容量'].notna().any()
             
-            if has_capacity_actual and has_capacity_budget:
+            if has_capacity_actual and has_capacity_budget and sales_col and budget_col and sales_col in filtered_2026_with_capacity.columns and budget_col in filtered_budget_with_capacity.columns:
                 capacity_budget_df = pd.DataFrame()
                 capacity_actual = filtered_2026_with_capacity[filtered_2026_with_capacity['容量'].notna()].groupby('容量')[sales_col].sum().reset_index()
                 capacity_budget = filtered_budget_with_capacity[filtered_budget_with_capacity['容量'].notna()].groupby('容量')[budget_col].sum().reset_index()
@@ -2659,7 +2678,7 @@ elif st.session_state.current_page == '历史销量':
         with card_container:
             st.markdown("<div class='section-title-purple'>26年实际销量（月分别）</div>", unsafe_allow_html=True)
             
-            if '月份' in filtered_2026.columns:
+            if '月份' in filtered_2026.columns and sales_col and sales_col in filtered_2026.columns:
                 monthly_sales_2026 = filtered_2026.groupby('月份')[sales_col].sum().reindex(months_order, fill_value=0).reset_index()
                 
                 import plotly.graph_objects as go
@@ -2684,7 +2703,7 @@ elif st.session_state.current_page == '历史销量':
                 )
                 st.plotly_chart(fig_monthly_2026, use_container_width=True)
             else:
-                st.markdown("<div style='text-align: center; color: #9ca3af; padding-top: 60px;'>数据中不含月份列</div>", unsafe_allow_html=True)
+                st.markdown("<div style='text-align: center; color: #9ca3af; padding-top: 60px;'>数据中不含月份列或销量列</div>", unsafe_allow_html=True)
 
     def convert_month(month_val):
         try:
@@ -2701,19 +2720,26 @@ elif st.session_state.current_page == '历史销量':
     if '月份' in filtered_budget.columns:
         filtered_budget['月份'] = filtered_budget['月份'].apply(convert_month)
 
-    filtered_2026[sales_col] = pd.to_numeric(filtered_2026[sales_col], errors='coerce').fillna(0)
-    filtered_2025[sales_col] = pd.to_numeric(filtered_2025[sales_col], errors='coerce').fillna(0)
-    filtered_budget[budget_col] = pd.to_numeric(filtered_budget[budget_col], errors='coerce').fillna(0)
+    if sales_col and sales_col in filtered_2026.columns:
+        filtered_2026[sales_col] = pd.to_numeric(filtered_2026[sales_col], errors='coerce').fillna(0)
+    if sales_col and sales_col in filtered_2025.columns:
+        filtered_2025[sales_col] = pd.to_numeric(filtered_2025[sales_col], errors='coerce').fillna(0)
+    if budget_col and budget_col in filtered_budget.columns:
+        filtered_budget[budget_col] = pd.to_numeric(filtered_budget[budget_col], errors='coerce').fillna(0)
     
-    if '月份' in filtered_2026.columns:
+    if '月份' in filtered_2026.columns and sales_col:
         monthly_2026 = filtered_2026.groupby('月份')[sales_col].sum().reindex(months_order, fill_value=0).reset_index()
     else:
-        monthly_2026 = pd.DataFrame({'月份': months_order, sales_col: [0]*12})
+        monthly_2026 = pd.DataFrame({'月份': months_order, '销量': [0]*12})
+        if sales_col:
+            monthly_2026 = monthly_2026.rename(columns={'销量': sales_col})
     
-    if '月份' in filtered_2025.columns:
+    if '月份' in filtered_2025.columns and sales_col:
         monthly_2025 = filtered_2025.groupby('月份')[sales_col].sum().reindex(months_order, fill_value=0).reset_index()
     else:
-        monthly_2025 = pd.DataFrame({'月份': months_order, sales_col: [0]*12})
+        monthly_2025 = pd.DataFrame({'月份': months_order, '销量': [0]*12})
+        if sales_col:
+            monthly_2025 = monthly_2025.rename(columns={'销量': sales_col})
     
     if '月份' in filtered_budget.columns:
         monthly_budget = filtered_budget.groupby('月份')[budget_col].sum().reindex(months_order, fill_value=0).reset_index()
@@ -2735,7 +2761,6 @@ elif st.session_state.current_page == '历史销量':
         axis=1
     )
 
-    @st.cache_data
     def create_trend_chart(monthly_compare, sales_col):
         import plotly.graph_objects as go
         
