@@ -1,8 +1,120 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 
 st.set_page_config(layout="wide", page_title="产销协调")
+
+st.markdown("""
+<script>
+(function() {
+    window.__plotlyLegendClickSetup = function() {
+        var plots = document.querySelectorAll('.js-plotly-plot');
+        plots.forEach(function(plot) {
+            if (!plot.__legend_modified) {
+                plot.__legend_modified = true;
+                
+                var legendGroup = plot.querySelector('.legend');
+                if (legendGroup) {
+                    var legendItems = legendGroup.querySelectorAll('.legenditem');
+                    legendItems.forEach(function(item) {
+                        var newItem = item.cloneNode(true);
+                        item.parentNode.replaceChild(newItem, item);
+                        
+                        newItem.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            
+                            var legendText = this.querySelector('.legendtext');
+                            if (legendText && plot.data) {
+                                var clickedName = legendText.textContent.trim();
+                                var allTraces = plot.data;
+                                var clickedVisible = true;
+                                
+                                allTraces.forEach(function(trace) {
+                                    if (trace.name === clickedName) {
+                                        clickedVisible = trace.visible !== false;
+                                    }
+                                });
+                                
+                                allTraces.forEach(function(trace) {
+                                    trace.visible = clickedVisible ? (trace.name === clickedName ? true : 'legendonly') : true;
+                                });
+                                
+                                Plotly.redraw(plot);
+                            }
+                        });
+                    });
+                }
+            }
+        });
+    };
+    
+    var observer = new MutationObserver(window.__plotlyLegendClickSetup);
+    observer.observe(document.body, { childList: true, subtree: true });
+})();
+</script>
+""", unsafe_allow_html=True)
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def cached_load_history_data(file_path):
+    xls = pd.ExcelFile(file_path)
+    available_sheets = xls.sheet_names
+    
+    df_2026 = pd.DataFrame()
+    df_2025 = pd.DataFrame()
+    df_budget = pd.DataFrame()
+    
+    for sheet in available_sheets:
+        if '2026年实际销量' in sheet or sheet == '2026年实际销量':
+            df_2026 = pd.read_excel(file_path, sheet_name=sheet)
+            df_2026 = reshape_data(df_2026)
+        elif '2025年实际销量' in sheet or sheet == '2025年实际销量':
+            df_2025 = pd.read_excel(file_path, sheet_name=sheet)
+            df_2025 = reshape_data(df_2025)
+        elif '2026年预算销量' in sheet or sheet == '2026年预算销量':
+            df_budget = pd.read_excel(file_path, sheet_name=sheet)
+            df_budget = reshape_data(df_budget)
+    
+    material_flavor_map = {}
+    if '日产量监控' in available_sheets:
+        try:
+            df_daily_prod = pd.read_excel(file_path, sheet_name='日产量监控')
+            material_flavor_map = df_daily_prod.groupby('物料号')['口味'].first().to_dict()
+        except Exception:
+            pass
+
+    if not df_2026.empty:
+        df_2026['年份'] = 2026
+    if not df_2025.empty:
+        df_2025['年份'] = 2025
+
+    return df_2026, df_2025, df_budget, material_flavor_map
+
+def reshape_data(df):
+    if df.empty:
+        return df
+    
+    date_cols = []
+    for col in df.columns:
+        col_str = str(col)
+        try:
+            pd.to_datetime(col_str)
+            date_cols.append(col)
+        except:
+            if '/' in col_str or '-' in col_str:
+                date_cols.append(col)
+    
+    if len(date_cols) > 0:
+        df_melted = df.melt(id_vars=[col for col in df.columns if col not in date_cols], 
+                           value_vars=date_cols,
+                           var_name='月份',
+                           value_name='销量')
+        
+        df_melted['月份'] = df_melted['月份'].apply(lambda x: f"{pd.to_datetime(str(x)).month}月" if pd.notna(pd.to_datetime(str(x), errors='coerce')) else str(x))
+        return df_melted
+    
+    return df
 
 # 手机端适配样式
 st.markdown("""
@@ -76,6 +188,28 @@ body {
 # 添加隐藏按钮的CSS
 st.markdown("""
 <style>
+/* Plotly图表柱状图hover效果 */
+.js-plotly-plot .plotly .bar {
+    cursor: pointer !important;
+}
+
+.js-plotly-plot .plotly .bar:hover {
+    opacity: 0.85 !important;
+}
+
+/* Plotly SVG元素hover效果 */
+.js-plotly-plot svg g.points path:hover,
+.js-plotly-plot svg g.bars rect:hover,
+.js-plotly-plot svg g.points polygon:hover {
+    opacity: 0.85 !important;
+    cursor: pointer !important;
+}
+
+/* Plotly图表区域cursor */
+.js-plotly-plot {
+    cursor: pointer !important;
+}
+
 .hidden-btn {
     display: none !important;
 }
@@ -417,8 +551,8 @@ with st.sidebar:
         }
         [data-testid="stSidebar"] .stButton > button {
             width: calc(100% - 16px);
-            margin: 8px 8px;
-            padding: 14px 20px;
+            margin: 10px 8px !important;
+            padding: 10px 20px;
             border-radius: 14px;
             border: 1.5px solid rgba(226, 232, 240, 0.8);
             background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.9) 100%) !important;
@@ -430,6 +564,9 @@ with st.sidebar:
             letter-spacing: 0.3px;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03), 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+        [data-testid="stSidebar"] .stButton {
+            margin-bottom: 0 !important;
         }
         [data-testid="stSidebar"] .stButton > button:hover {
             background: linear-gradient(135deg, rgba(239, 246, 255, 0.95) 0%, rgba(219, 234, 254, 0.95) 100%) !important;
@@ -518,6 +655,16 @@ with st.sidebar:
         st.markdown('<style>[data-testid="stSidebar"] [data-testid="baseButton-secondary-btn_material"] { background-color: #eff6ff !important; color: #1e40af !important; font-weight: 600; }</style>', unsafe_allow_html=True)
     if st.button('物料对应关系', key='btn_material', use_container_width=True):
         st.session_state.current_page = '物料对应关系'
+    
+    if st.session_state.current_page == '调出分析':
+        st.markdown('<style>[data-testid="stSidebar"] [data-testid="baseButton-secondary-btn_adjust"] { background-color: #eff6ff !important; color: #1e40af !important; font-weight: 600; }</style>', unsafe_allow_html=True)
+    if st.button('调出分析', key='btn_adjust', use_container_width=True):
+        st.session_state.current_page = '调出分析'
+    
+    if st.session_state.current_page == '大修进度':
+        st.markdown('<style>[data-testid="stSidebar"] [data-testid="baseButton-secondary-btn_maintenance"] { background-color: #eff6ff !important; color: #1e40af !important; font-weight: 600; }</style>', unsafe_allow_html=True)
+    if st.button('大修进度', key='btn_maintenance', use_container_width=True):
+        st.session_state.current_page = '大修进度'
     
     st.markdown('<div class="menu-divider"></div>', unsafe_allow_html=True)
     
@@ -863,13 +1010,13 @@ st.markdown("""
 
 if st.session_state.current_page == '需求分析':
     import os
-    import datetime
+    from datetime import datetime
     
     file_path = 'BW数据.xlsx'
     update_time = '未知'
     if os.path.exists(file_path):
         mtime = os.path.getmtime(file_path)
-        update_time = datetime.datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')
+        update_time = datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')
     
     st.markdown("""
         <div class='header-card'>
@@ -897,21 +1044,27 @@ if st.session_state.current_page == '需求分析':
         uploaded_file = st.file_uploader(
             '📁 上传Excel数据',
             type=['xlsx', 'xls'],
-            key='page_file_uploader',
+            key=f'page_file_uploader_{st.session_state.get("upload_counter", 0)}',
             help='上传包含出货数据的Excel文件',
-            label_visibility='collapsed'
+            label_visibility='collapsed',
+            on_change=lambda: st.session_state.update({'data_updated': True})
         )
         
-        if uploaded_file is not None:
+        if uploaded_file is not None and st.session_state.get('data_updated'):
             try:
                 with open('BW数据.xlsx', 'wb') as f:
                     f.write(uploaded_file.getbuffer())
                 
-                load_data.clear()
-                load_mappings.clear()
+                st.cache_data.clear()
                 
-                st.success('✅ 数据上传成功！页面将自动刷新...')
-                st.rerun()
+                if 'upload_counter' not in st.session_state:
+                    st.session_state.upload_counter = 0
+                st.session_state.upload_counter += 1
+                
+                st.session_state['data_updated'] = False
+                st.session_state['last_upload_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                
+                st.success(f'✅ 数据上传成功！({st.session_state["last_upload_time"]})')
             except Exception as e:
                 st.error(f'❌ 上传失败: {str(e)}')
 
@@ -1087,6 +1240,10 @@ if st.session_state.current_page == '需求分析':
                 <div class='metric-value-blue'>{int(total_budget):,}</div>
                 <div class='metric-label'>总预算销量</div>
             </div>
+            <div class='metric-card-blue'>
+                <div class='metric-value-blue'>{int(monthly_order):,}</div>
+                <div class='metric-label'>月累排单</div>
+            </div>
             <div class='metric-card-orange'>
                 <div class='metric-value-orange'>{avg_budget_achievement:.1f}%</div>
                 <div class='metric-label'>预算达成率</div>
@@ -1098,10 +1255,6 @@ if st.session_state.current_page == '需求分析':
                     <span style='margin-right: 4px;'>{growth_trend_icon}</span>
                     {growth_trend_color == '#dc2626' and '同比下降' or '同比增长'}
                 </div>
-            </div>
-            <div class='metric-card-blue'>
-                <div class='metric-value-blue'>{int(monthly_order):,}</div>
-                <div class='metric-label'>月累排单</div>
             </div>
             <div class='metric-card-orange'>
                 <div class='metric-value-orange'>{monthly_order_achievement:.1f}%</div>
@@ -1129,6 +1282,7 @@ if st.session_state.current_page == '需求分析':
         dept_df = dept_df.sort_values('需求量', ascending=False)
         dept_df['排单需求达成率'] = dept_df.apply(lambda row: 0 if (row['需求量'] == 0 or row['月累排单'] == 0) else (row['月累排单'] / row['需求量'] * 100), axis=1)
         dept_df['排单预算达成率'] = dept_df.apply(lambda row: 0 if (row['预算销量'] == 0 or row['月累排单'] == 0) else (row['月累排单'] / row['预算销量'] * 100), axis=1)
+        dept_df['月累排单较同期'] = dept_df.apply(lambda row: 0 if row['去年同期销量'] == 0 else ((row['月累排单'] - row['去年同期销量']) / row['去年同期销量'] * 100), axis=1)
 
         st.markdown("""
             <style>
@@ -1265,7 +1419,7 @@ if st.session_state.current_page == '需求分析':
         table_html += "<div style='overflow-x: auto; height: 595px; overflow-y: auto; position: relative;'>"
         table_html += "<table class='custom-table'>"
         table_html += "<thead><tr>"
-        table_html += "<th>营业部</th><th>需求量</th><th>预算<br>销量</th><th>同期<br>销量</th><th>月累排单</th><th>月累<br>销量</th><th>排单需求<br>达成率</th><th>排单预算<br>达成率</th>"
+        table_html += "<th>营业部</th><th>需求量</th><th>预算<br>销量</th><th>同期<br>销量</th><th>月累排单</th><th>月累<br>销量</th><th>排单需求<br>达成率</th><th>排单预算<br>达成率</th><th>月累排单<br>较同期</th>"
         table_html += "</tr></thead><tbody>"
 
         def get_rate_style(rate):
@@ -1319,6 +1473,16 @@ if st.session_state.current_page == '需求分析':
             table_html += f"<div style='width: 100%; height: 8px; background-color: #e5e7eb; border-radius: 4px; overflow: hidden;'>"
             table_html += f"<div style='width: {db_bar_width}%; height: 100%; background-color: {db_bar_color}; border-radius: 4px; transition: width 0.3s ease;'></div>"
             table_html += "</div></td>"
+            
+            growth_rate = row['月累排单较同期']
+            growth_label = f"{growth_rate:+.1f}%"
+            growth_color = '#16a34a' if growth_rate >= 0 else '#dc2626'
+            
+            table_html += f"<td style='padding: 8px; text-align: center;'>"
+            table_html += f"<div style='font-weight: 600; color: {growth_color};'>{growth_label}</div>"
+            table_html += f"<div style='font-size: 12px; color: #64748b;'>{'成长' if growth_rate >= 0 else '衰退'}</div>"
+            table_html += "</td>"
+            
             table_html += "</tr>"
 
         table_html += "</tbody></table></div></div>"
@@ -1593,14 +1757,16 @@ if st.session_state.current_page == '需求分析':
         with card_container:
             st.markdown("<div class='section-title'>需求与排单（容量别）</div>", unsafe_allow_html=True)
             if '容量' in filtered_df.columns:
-                capacity_df = filtered_df.groupby('容量').agg({
+                valid_df = filtered_df[(filtered_df['需求量'] > 0) | (filtered_df['月累排单'] > 0)]
+                capacity_df = valid_df.groupby('容量').agg({
                     '月累排单': 'sum',
                     '需求量': 'sum'
                 }).reset_index()
                 
+                capacity_df = capacity_df[(capacity_df['需求量'] > 0) | (capacity_df['月累排单'] > 0)]
                 capacity_df = capacity_df.sort_values('需求量', ascending=False)
                 
-                capacity_df['差异量'] = capacity_df['需求量'] - capacity_df['月累排单']
+                capacity_df['差异量'] = capacity_df['月累排单'] - capacity_df['需求量']
                 capacity_df['差异百分比'] = (capacity_df['差异量'] / capacity_df['需求量'] * 100).apply(lambda x: f'{x:+.2f}%')
                 
                 import plotly.graph_objects as go
@@ -1623,11 +1789,11 @@ if st.session_state.current_page == '需求分析':
                     y=capacity_df['月累排单'],
                     mode='lines+markers+text',
                     name='月累排单',
-                    line=dict(color='#60a5fa', width=3, dash='dot'),
-                    marker=dict(color='#60a5fa', size=8, symbol='diamond', line=dict(width=2, color='#ffffff')),
+                    line=dict(color='#ea580c', width=3, dash='dash'),
+                    marker=dict(color='#ea580c', size=8, symbol='square', line=dict(width=2, color='#ffffff')),
                     text=capacity_df['月累排单'].apply(lambda x: f'{x:.2f}'),
                     textposition='bottom center',
-                    textfont=dict(color='#2563eb', size=14, weight='bold'),
+                    textfont=dict(color='#ea580c', size=14, weight='bold'),
                     customdata=capacity_df['容量'],
                     hovertemplate='<b>容量:</b> %{customdata}<br><b>月累排单:</b> %{y:.2f}<extra></extra>'
                 ))
@@ -1635,8 +1801,8 @@ if st.session_state.current_page == '需求分析':
                 offset = max_value * 0.25 if max_value > 0 else 12
                 
                 for _, row in capacity_df.iterrows():
-                    diff_color = '#dc2626' if row['差异量'] > 0 else '#059669'
-                    diff_text = f'Δ{row["差异量"]:+.2f}'
+                    diff_color = '#059669' if row['差异量'] > 0 else '#dc2626'
+                    diff_text = f'{"+" if row["差异量"] > 0 else ""}{row["差异量"]:.2f}'
                     fig_capacity.add_trace(go.Scatter(
                         x=[row['容量']],
                         y=[max(row['需求量'], row['月累排单']) + offset],
@@ -1755,22 +1921,24 @@ if st.session_state.current_page == '需求分析':
         table_html += "<div style='overflow-x: auto; max-height: 400px; overflow-y: auto;'>"
         table_html += "<table class='custom-table'>"
         table_html += "<thead><tr>"
-        table_html += "<th>容量</th><th>需求量</th><th>预算<br>销量</th><th>同期<br>销量</th><th>预算<br>达成</th><th>较同期<br>成长</th><th>月累排单</th><th>缺口量</th><th>缺口率</th>"
+        table_html += "<th>容量</th><th>需求量</th><th>预算<br>销量</th><th>同期<br>销量</th><th>预算<br>达成</th><th>较同期<br>成长</th><th>月累排单</th><th>差量</th><th>差量率</th>"
         table_html += "</tr></thead><tbody>"
 
         for _, row in capacity_df.iterrows():
             budget_rate = row['预算达成']
             growth_rate = row['较同期成长']
             
-            gap_amount = row['需求量'] - row['月累排单']
-            gap_rate = (gap_amount / row['需求量'] * 100) if row['需求量'] > 0 else float('nan')
+            diff_amount = row['月累排单'] - row['需求量']
+            diff_rate = (diff_amount / row['需求量'] * 100) if row['需求量'] > 0 else float('nan')
             
             budget_display = f"{budget_rate:.2f}%" if (pd.notna(budget_rate) and abs(budget_rate) != float('inf')) else '--'
             growth_display = f"{growth_rate:.2f}%" if (pd.notna(growth_rate) and abs(growth_rate) != float('inf')) else '--'
-            gap_rate_display = f"{gap_rate:.2f}%" if (pd.notna(gap_rate) and abs(gap_rate) != float('inf')) else '--'
+            diff_rate_display = f"{diff_rate:.2f}%" if (pd.notna(diff_rate) and abs(diff_rate) != float('inf')) else '--'
             
             growth_style = "color: #ef4444; font-weight: bold;" if (growth_rate < 0 and pd.notna(growth_rate)) else ""
-            gap_style = "color: #ef4444; font-weight: bold;" if (gap_rate > 20 and pd.notna(gap_rate)) else ""
+            
+            diff_color = '#dc2626' if (diff_amount < 0 and pd.notna(diff_amount)) else '#059669'
+            diff_style = f"color: {diff_color}; font-weight: bold;"
             
             table_html += "<tr>"
             table_html += f"<td>{row['容量']}</td>"
@@ -1780,8 +1948,8 @@ if st.session_state.current_page == '需求分析':
             table_html += f"<td>{budget_display}</td>"
             table_html += f"<td style='{growth_style}'>{growth_display}</td>"
             table_html += f"<td>{row['月累排单']:.2f}</td>"
-            table_html += f"<td>{gap_amount:.2f}</td>"
-            table_html += f"<td style='{gap_style}'>{gap_rate_display}</td>"
+            table_html += f"<td style='{diff_style}'>{diff_amount:.2f}</td>"
+            table_html += f"<td style='{diff_style}'>{diff_rate_display}</td>"
             table_html += "</tr>"
 
         table_html += "</tbody></table></div></div>"
@@ -1795,30 +1963,32 @@ if st.session_state.current_page == '需求分析':
             '预算销量': 'sum'
         }).reset_index()
         flavor_df = flavor_df.sort_values('需求量', ascending=False)
-        flavor_df['预算达成'] = flavor_df.apply(lambda row: 0 if row['需求量'] == 0 else (row['预算销量'] / row['需求量'] * 100), axis=1)
+        flavor_df['预算达成'] = flavor_df.apply(lambda row: 0 if (row['预算销量'] == 0 or row['需求量'] == 0) else (row['需求量'] / row['预算销量'] * 100), axis=1)
         flavor_df['较同期成长'] = flavor_df.apply(lambda row: 0 if row['去年同期销量'] == 0 else ((row['需求量'] - row['去年同期销量']) / row['去年同期销量'] * 100), axis=1)
-        flavor_df['缺口量'] = flavor_df.apply(lambda row: row['需求量'] - row['月累排单'], axis=1)
-        flavor_df['缺口率'] = flavor_df.apply(lambda row: 0 if row['需求量'] == 0 else ((row['需求量'] - row['月累排单']) / row['需求量'] * 100), axis=1)
+        flavor_df['差量'] = flavor_df.apply(lambda row: row['月累排单'] - row['需求量'], axis=1)
+        flavor_df['差量率'] = flavor_df.apply(lambda row: 0 if row['需求量'] == 0 else ((row['月累排单'] - row['需求量']) / row['需求量'] * 100), axis=1)
 
         table_html = "<div class='section-card'>"
         table_html += "<div class='section-title'>需求分析（口味别）</div>"
         table_html += "<div style='overflow-x: auto; max-height: 400px; overflow-y: auto;'>"
         table_html += "<table class='custom-table'>"
         table_html += "<thead><tr>"
-        table_html += "<th>口味</th><th>需求量</th><th>预算<br>销量</th><th>同期<br>销量</th><th>预算<br>达成</th><th>较同期<br>成长</th><th>月累排单</th><th>缺口量</th><th>缺口率</th>"
+        table_html += "<th>口味</th><th>需求量</th><th>预算<br>销量</th><th>同期<br>销量</th><th>预算<br>达成</th><th>较同期<br>成长</th><th>月累排单</th><th>差量</th><th>差量率</th>"
         table_html += "</tr></thead><tbody>"
 
         for _, row in flavor_df.iterrows():
             budget_rate = row['预算达成']
             growth_rate = row['较同期成长']
-            gap_rate = row['缺口率']
+            diff_rate = row['差量率']
             
             budget_display = f"{budget_rate:.2f}%" if (pd.notna(budget_rate) and abs(budget_rate) != float('inf')) else '--'
             growth_display = f"{growth_rate:.2f}%" if (pd.notna(growth_rate) and abs(growth_rate) != float('inf')) else '--'
-            gap_rate_display = f"{gap_rate:.2f}%" if (pd.notna(gap_rate) and abs(gap_rate) != float('inf')) else '--'
+            diff_rate_display = f"{diff_rate:.2f}%" if (pd.notna(diff_rate) and abs(diff_rate) != float('inf')) else '--'
             
             growth_style = "color: #ef4444; font-weight: bold;" if (growth_rate < 0 and pd.notna(growth_rate)) else ""
-            gap_style = "color: #ef4444; font-weight: bold;" if (gap_rate > 20 and pd.notna(gap_rate)) else ""
+            
+            diff_color = '#dc2626' if (row['差量'] < 0 and pd.notna(row['差量'])) else '#059669'
+            diff_style = f"color: {diff_color}; font-weight: bold;"
             
             table_html += "<tr>"
             table_html += f"<td>{row['口味']}</td>"
@@ -1828,8 +1998,8 @@ if st.session_state.current_page == '需求分析':
             table_html += f"<td>{budget_display}</td>"
             table_html += f"<td style='{growth_style}'>{growth_display}</td>"
             table_html += f"<td>{row['月累排单']:.2f}</td>"
-            table_html += f"<td>{row['缺口量']:.2f}</td>"
-            table_html += f"<td style='{gap_style}'>{gap_rate_display}</td>"
+            table_html += f"<td style='{diff_style}'>{row['差量']:.2f}</td>"
+            table_html += f"<td style='{diff_style}'>{diff_rate_display}</td>"
             table_html += "</tr>"
 
         table_html += "</tbody></table></div></div>"
@@ -1915,11 +2085,12 @@ if st.session_state.current_page == '需求分析':
             '需求量': 'sum',
             '月累排单': 'sum'
         }).reset_index()
-        gap_df['缺口量'] = gap_df['需求量'] - gap_df['月累排单']
-        gap_df = gap_df[gap_df['缺口量'] > 0].sort_values('缺口量', ascending=False)
+        gap_df['差量'] = gap_df['月累排单'] - gap_df['需求量']
+        gap_df['差量率'] = round(gap_df['差量'] / gap_df['需求量'] * 100, 1).fillna(0)
+        gap_df = gap_df[gap_df['差量'] < 0].sort_values('差量', ascending=True)
         
-        total_gap = gap_df['缺口量'].sum()
-        gap_df['累计缺口占比'] = round(gap_df['缺口量'].cumsum() / total_gap * 100, 1) if total_gap > 0 else 0
+        total_gap = gap_df['差量'].abs().sum()
+        gap_df['累计缺口占比'] = round(gap_df['差量'].abs().cumsum() / total_gap * 100, 1) if total_gap > 0 else 0
         
         top_n_df = gap_df[gap_df['累计缺口占比'] <= 80].head(3)
         
@@ -1935,7 +2106,7 @@ if st.session_state.current_page == '需求分析':
             cols = st.columns(3)
             for idx, (_, row) in enumerate(top_n_df.iterrows()):
                 with cols[idx]:
-                    gap_percent = round(row['缺口量'] / row['需求量'] * 100, 1) if row['需求量'] > 0 else 0
+                    gap_percent = abs(row['差量率'])
                     rank_color = '#dc2626' if idx == 0 else '#f59e0b' if idx == 1 else '#3b82f6'
                     gap_color = '#dc2626' if gap_percent > 50 else '#f59e0b' if gap_percent > 30 else '#3b82f6'
                     
@@ -1967,8 +2138,8 @@ if st.session_state.current_page == '需求分析':
                                     <div style="font-weight: bold; font-size: 16px; color: #1f2937;">{row['月累排单']:.2f}</div>
                                 </div>
                                 <div style="text-align: center; flex: 1; padding: 8px; background: #f8fafc; border-radius: 8px; margin: 0 3px;">
-                                    <div style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">缺口量</div>
-                                    <div style="font-weight: bold; font-size: 16px; color: {gap_color};">{row['缺口量']:.2f}</div>
+                                    <div style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">差量</div>
+                                    <div style="font-weight: bold; font-size: 16px; color: {gap_color};">{row['差量']:.2f}</div>
                                 </div>
                             </div>
                             <div style="background: #fffbeb; border-radius: 8px; padding: 12px;">
@@ -1985,24 +2156,24 @@ if st.session_state.current_page == '需求分析':
                     
                     if st.session_state.get(expand_key, False):
                         dept_detail = filtered_df[filtered_df['营业部'] == row['营业部']].copy()
-                        dept_detail['缺口量'] = dept_detail['需求量'] - dept_detail['月累排单']
-                        dept_detail['缺口率'] = round(dept_detail['缺口量'] / dept_detail['需求量'] * 100, 1).fillna(0)
-                        dept_detail = dept_detail[dept_detail['缺口量'] > 0].sort_values('缺口量', ascending=False).head(10)
+                        dept_detail['差量'] = dept_detail['月累排单'] - dept_detail['需求量']
+                        dept_detail['差量率'] = round(dept_detail['差量'] / dept_detail['需求量'] * 100, 1).fillna(0)
+                        dept_detail = dept_detail[dept_detail['差量'] < 0].sort_values('差量', ascending=True).head(10)
                         
                         if len(dept_detail) > 0:
                             table_rows = ""
                             for _, detail_row in dept_detail.iterrows():
-                                gap_rate_color = '#dc2626' if detail_row['缺口率'] > 20 else '#3b82f6'
+                                gap_rate_color = '#dc2626' if detail_row['差量率'] < -20 else '#3b82f6'
                                 taste = str(detail_row['口味'])
                                 capacity = str(detail_row['容量'])
                                 demand = round(detail_row['需求量'], 2)
                                 order = round(detail_row['月累排单'], 2)
-                                gap = round(detail_row['缺口量'], 2)
-                                gap_rate = detail_row['缺口率']
+                                gap = round(detail_row['差量'], 2)
+                                gap_rate = detail_row['差量率']
                                 
                                 table_rows += f"""<tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{taste}</td><td style="padding: 4px; text-align: right;">{capacity}</td><td style="padding: 4px; text-align: right;">{demand}</td><td style="padding: 4px; text-align: right;">{order}</td><td style="padding: 4px; text-align: right; color: {gap_rate_color};">{gap}</td><td style="padding: 4px; text-align: right; color: {gap_rate_color}; font-weight: 600;">{gap_rate}%</td></tr>"""
                             
-                            table_html = f"""<div style="margin-top: 2px; margin-bottom: 12px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); overflow: hidden; background: #ffffff; border: 1px solid #e5e7eb;"><div style="padding: 10px; background: #f1f5f9; border-bottom: 1px solid #e2e8f0;"><div style="font-weight: bold; font-size: 13px; color: #334155;">口味容量明细（前10）</div></div><div style="padding: 0; max-height: 220px; overflow-y: auto;"><table style="width: 100%; font-size: 11px; border-collapse: collapse; table-layout: fixed;"><thead style="position: sticky; top: 0; background: #e2e8f0; z-index: 1;"><tr><th style="padding: 5px 4px; text-align: left; font-weight: 600; color: #475569; width: 25%;">口味</th><th style="padding: 5px 4px; text-align: right; font-weight: 600; color: #475569; width: 12%;">容量</th><th style="padding: 5px 4px; text-align: right; font-weight: 600; color: #475569; width: 15%;">需求量</th><th style="padding: 5px 4px; text-align: right; font-weight: 600; color: #475569; width: 15%;">已排单</th><th style="padding: 5px 4px; text-align: right; font-weight: 600; color: #475569; width: 15%;">缺口量</th><th style="padding: 5px 4px; text-align: right; font-weight: 600; color: #475569; width: 18%;">缺口率</th></tr></thead><tbody>{table_rows}</tbody></table></div></div>"""
+                            table_html = f"""<div style="margin-top: 2px; margin-bottom: 12px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); overflow: hidden; background: #ffffff; border: 1px solid #e5e7eb;"><div style="padding: 10px; background: #f1f5f9; border-bottom: 1px solid #e2e8f0;"><div style="font-weight: bold; font-size: 13px; color: #334155;">口味容量明细（前10）</div></div><div style="padding: 0; max-height: 220px; overflow-y: auto;"><table style="width: 100%; font-size: 11px; border-collapse: collapse; table-layout: fixed;"><thead style="position: sticky; top: 0; background: #e2e8f0; z-index: 1;"><tr><th style="padding: 5px 4px; text-align: left; font-weight: 600; color: #475569; width: 25%;">口味</th><th style="padding: 5px 4px; text-align: right; font-weight: 600; color: #475569; width: 12%;">容量</th><th style="padding: 5px 4px; text-align: right; font-weight: 600; color: #475569; width: 15%;">需求量</th><th style="padding: 5px 4px; text-align: right; font-weight: 600; color: #475569; width: 15%;">已排单</th><th style="padding: 5px 4px; text-align: right; font-weight: 600; color: #475569; width: 15%;">差量</th><th style="padding: 5px 4px; text-align: right; font-weight: 600; color: #475569; width: 18%;">差量率</th></tr></thead><tbody>{table_rows}</tbody></table></div></div>"""
                             st.markdown(table_html, unsafe_allow_html=True)
                         else:
                             st.markdown("<div style='margin-top: 12px; padding: 12px; background: #d1fae5; border-radius: 8px; text-align: center; color: #059669; font-size: 13px;'>该营业部当前筛选条件下无缺量明细</div>", unsafe_allow_html=True)
@@ -2037,65 +2208,7 @@ if st.session_state.current_page == '需求分析':
 
 elif st.session_state.current_page == '历史销量':
     SAVE_FILE = 'history_data_cache.pkl'
-    
-    def reshape_data(df):
-        if df.empty:
-            return df
-        
-        date_cols = []
-        for col in df.columns:
-            col_str = str(col)
-            try:
-                pd.to_datetime(col_str)
-                date_cols.append(col)
-            except:
-                if '/' in col_str or '-' in col_str:
-                    date_cols.append(col)
-        
-        if len(date_cols) > 0:
-            df_melted = df.melt(id_vars=[col for col in df.columns if col not in date_cols], 
-                               value_vars=date_cols,
-                               var_name='月份',
-                               value_name='销量')
-            
-            df_melted['月份'] = df_melted['月份'].apply(lambda x: f"{pd.to_datetime(str(x)).month}月" if pd.notna(pd.to_datetime(str(x), errors='coerce')) else str(x))
-            return df_melted
-        
-        return df
-
-    def load_history_data(file_path):
-        xls = pd.ExcelFile(file_path)
-        available_sheets = xls.sheet_names
-        
-        df_2026 = pd.DataFrame()
-        df_2025 = pd.DataFrame()
-        df_budget = pd.DataFrame()
-        
-        for sheet in available_sheets:
-            if '2026年实际销量' in sheet or sheet == '2026年实际销量':
-                df_2026 = pd.read_excel(file_path, sheet_name=sheet)
-                df_2026 = reshape_data(df_2026)
-            elif '2025年实际销量' in sheet or sheet == '2025年实际销量':
-                df_2025 = pd.read_excel(file_path, sheet_name=sheet)
-                df_2025 = reshape_data(df_2025)
-            elif '2026年预算销量' in sheet or sheet == '2026年预算销量':
-                df_budget = pd.read_excel(file_path, sheet_name=sheet)
-                df_budget = reshape_data(df_budget)
-        
-        material_flavor_map = {}
-        if '日产量监控' in available_sheets:
-            try:
-                df_daily_prod = pd.read_excel(file_path, sheet_name='日产量监控')
-                material_flavor_map = df_daily_prod.groupby('物料号')['口味'].first().to_dict()
-            except Exception:
-                pass
-
-        if not df_2026.empty:
-            df_2026['年份'] = 2026
-        if not df_2025.empty:
-            df_2025['年份'] = 2025
-
-        return df_2026, df_2025, df_budget, material_flavor_map
+    from datetime import datetime
 
     def save_data(df_2026, df_2025, df_budget, material_flavor_map):
         import pickle
@@ -2124,7 +2237,7 @@ elif st.session_state.current_page == '历史销量':
     if df_2026_actual.empty and df_2025_actual.empty and df_2026_budget.empty:
         import os
         if os.path.exists('2026销量.xlsx'):
-            df_2026_actual, df_2025_actual, df_2026_budget, material_flavor_map = load_history_data('2026销量.xlsx')
+            df_2026_actual, df_2025_actual, df_2026_budget, material_flavor_map = cached_load_history_data('2026销量.xlsx')
             save_data(df_2026_actual, df_2025_actual, df_2026_budget, material_flavor_map)
             st.success("已从默认数据文件加载数据！")
 
@@ -2137,19 +2250,22 @@ elif st.session_state.current_page == '历史销量':
 
     with st.expander("上传/更新数据", expanded=False):
         uploaded_file = st.file_uploader("选择Excel文件（需包含2026年实际销量、2025年实际销量、2026年预算销量sheet）", 
-                                        type=['xlsx'], key='history_uploader_new')
-        if uploaded_file is not None:
-            load_data.clear()
-            load_mappings.clear()
-            precompute_flavor_materials.clear()
-            precompute_capacity_materials.clear()
-            precompute_package_materials.clear()
+                                        type=['xlsx'], key=f'history_uploader_new_{st.session_state.get("history_upload_counter", 0)}',
+                                        on_change=lambda: st.session_state.update({'history_data_updated': True}))
+        if uploaded_file is not None and st.session_state.get('history_data_updated'):
+            st.cache_data.clear()
             
-            df_2026_actual, df_2025_actual, df_2026_budget, material_flavor_map = load_history_data(uploaded_file)
+            df_2026_actual, df_2025_actual, df_2026_budget, material_flavor_map = cached_load_history_data(uploaded_file)
             save_data(df_2026_actual, df_2025_actual, df_2026_budget, material_flavor_map)
             
-            st.success("数据已刷新并保存！")
-            st.rerun()
+            if 'history_upload_counter' not in st.session_state:
+                st.session_state.history_upload_counter = 0
+            st.session_state.history_upload_counter += 1
+            
+            st.session_state['history_data_updated'] = False
+            st.session_state['history_last_upload_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            
+            st.success(f"数据已刷新并保存！({st.session_state['history_last_upload_time']})")
 
     material_col = None
     for col in ['物料号', '物料', '物料编号', '产品号', '产品编号', 'ItemCode', 'Item']:
@@ -2356,27 +2472,41 @@ elif st.session_state.current_page == '历史销量':
         
         df_copy = df.copy()
         
-        def get_attr(material, attr_name):
-            if pd.isna(material):
-                return None
-            material_str = str(material).strip()
+        material_str_series = df_copy[material_col].astype(str).str.strip()
+        
+        attr_cache = {}
+        for material_str in material_str_series.unique():
+            if pd.isna(material_str) or material_str == 'nan':
+                attr_cache[material_str] = {'flavors': None, 'capacities': None, 'packages': None}
+                continue
+            
+            result = {'flavors': None, 'capacities': None, 'packages': None}
+            
             if material_str in material_to_universal:
                 universal = material_to_universal[material_str]
                 if universal in universal_to_attrs:
-                    attrs = universal_to_attrs[universal].get(attr_name, [])
-                    return attrs[0] if attrs else None
+                    attrs = universal_to_attrs[universal]
+                    for attr_name in ['flavors', 'capacities', 'packages']:
+                        attr_list = attrs.get(attr_name, [])
+                        if attr_list:
+                            result[attr_name] = attr_list[0]
             else:
                 for key in material_to_universal:
                     if key in material_str or material_str in key:
                         universal = material_to_universal[key]
                         if universal in universal_to_attrs:
-                            attrs = universal_to_attrs[universal].get(attr_name, [])
-                            return attrs[0] if attrs else None
-            return None
+                            attrs = universal_to_attrs[universal]
+                            for attr_name in ['flavors', 'capacities', 'packages']:
+                                attr_list = attrs.get(attr_name, [])
+                                if attr_list:
+                                    result[attr_name] = attr_list[0]
+                            break
+            
+            attr_cache[material_str] = result
         
-        df_copy['口味'] = df_copy[material_col].apply(lambda x: get_attr(x, 'flavors'))
-        df_copy['容量'] = df_copy[material_col].apply(lambda x: get_attr(x, 'capacities'))
-        df_copy['内包装'] = df_copy[material_col].apply(lambda x: get_attr(x, 'packages'))
+        df_copy['口味'] = material_str_series.map(lambda x: attr_cache.get(x, {}).get('flavors'))
+        df_copy['容量'] = material_str_series.map(lambda x: attr_cache.get(x, {}).get('capacities'))
+        df_copy['内包装'] = material_str_series.map(lambda x: attr_cache.get(x, {}).get('packages'))
         
         return df_copy
 
@@ -2387,6 +2517,23 @@ elif st.session_state.current_page == '历史销量':
     filtered_2026 = filter_data(df_2026_actual_with_attrs, history_region, history_dept, selected_months, history_flavor, history_capacity, history_package, history_project, history_product30, history_product20, REGION_DEPT_MAP, flavor_to_materials, capacity_to_materials, package_to_materials, project_map, product30_map, product20_map, material_col)
     filtered_2025 = filter_data(df_2025_actual_with_attrs, history_region, history_dept, selected_months, history_flavor, history_capacity, history_package, history_project, history_product30, history_product20, REGION_DEPT_MAP, flavor_to_materials, capacity_to_materials, package_to_materials, project_map, product30_map, product20_map, material_col)
     filtered_budget = filter_data(df_2026_budget_with_attrs, history_region, history_dept, selected_months, history_flavor, history_capacity, history_package, history_project, history_product30, history_product20, REGION_DEPT_MAP, flavor_to_materials, capacity_to_materials, package_to_materials, project_map, product30_map, product20_map, material_col)
+
+    if 'selected_capacity' not in st.session_state:
+        st.session_state.selected_capacity = None
+    if 'clear_selection_triggered' not in st.session_state:
+        st.session_state.clear_selection_triggered = False
+
+    filtered_2026_for_source_chart = filtered_2026.copy()
+    filtered_2025_for_source_chart = filtered_2025.copy()
+
+    if st.session_state.selected_capacity:
+        selected_capacity_str = str(st.session_state.selected_capacity)
+        if '容量' in filtered_2026.columns:
+            filtered_2026 = filtered_2026[filtered_2026['容量'].astype(str) == selected_capacity_str]
+        if '容量' in filtered_2025.columns:
+            filtered_2025 = filtered_2025[filtered_2025['容量'].astype(str) == selected_capacity_str]
+        if '容量' in filtered_budget.columns:
+            filtered_budget = filtered_budget[filtered_budget['容量'].astype(str) == selected_capacity_str]
 
     with st.expander("筛选结果调试", expanded=False):
         st.write(f"筛选条件 - 口味: {history_flavor}, 容量: {history_capacity}, 内包装: {history_package}")
@@ -2528,186 +2675,194 @@ elif st.session_state.current_page == '历史销量':
         </div>
         """, unsafe_allow_html=True)
 
-    filtered_2026_with_attrs = filtered_2026
-    filtered_2025_with_attrs = filtered_2025
+    filtered_2026_with_attrs = filtered_2026_for_source_chart
+    filtered_2025_with_attrs = filtered_2025_for_source_chart
     filtered_budget_with_attrs = filtered_budget
+
+    def clear_selection():
+        st.session_state.selected_capacity = None
+        st.session_state.clear_selection_triggered = True
+        if 'capacity_growth_chart' in st.session_state:
+            del st.session_state['capacity_growth_chart']
+    
+    col_reset = st.columns([1, 10])
+    with col_reset[0]:
+        if st.session_state.selected_capacity:
+            st.button('清除筛选', on_click=clear_selection, use_container_width=True)
+    
+    st.session_state.clear_selection_triggered = False
+    
+    if st.session_state.selected_capacity:
+        st.markdown(f"<div style='padding: 8px 16px; background-color: #FEF3C7; border-radius: 8px; color: #D97706; font-weight: bold; margin-bottom: 16px;'>当前筛选: 容量 = {st.session_state.selected_capacity}</div>", unsafe_allow_html=True)
 
     col_new1, col_new2, col_new3 = st.columns(3, gap='medium')
 
     with col_new1:
-        card_container = st.container(border=True)
-        with card_container:
-            st.markdown("<div class='section-title-purple'>较同期成长（容量别）</div>", unsafe_allow_html=True)
+        st.markdown("<div class='section-title-purple'>较同期成长（容量别）</div>", unsafe_allow_html=True)
+        st.markdown("<div class='chart-scroll-container'>", unsafe_allow_html=True)
+        
+        has_capacity_2026 = '容量' in filtered_2026_with_attrs.columns and filtered_2026_with_attrs['容量'].notna().any()
+        has_capacity_2025 = '容量' in filtered_2025_with_attrs.columns and filtered_2025_with_attrs['容量'].notna().any()
+        
+        if has_capacity_2026 and has_capacity_2025 and sales_col and sales_col in filtered_2026_with_attrs.columns and sales_col in filtered_2025_with_attrs.columns:
+            capacity_growth_df = pd.DataFrame()
+            capacity_2026 = filtered_2026_with_attrs[filtered_2026_with_attrs['容量'].notna()].groupby('容量')[sales_col].sum().reset_index()
+            capacity_2025 = filtered_2025_with_attrs[filtered_2025_with_attrs['容量'].notna()].groupby('容量')[sales_col].sum().reset_index()
             
-            has_capacity_2026 = '容量' in filtered_2026_with_attrs.columns and filtered_2026_with_attrs['容量'].notna().any()
-            has_capacity_2025 = '容量' in filtered_2025_with_attrs.columns and filtered_2025_with_attrs['容量'].notna().any()
+            capacity_growth_df = pd.merge(capacity_2026, capacity_2025, on='容量', suffixes=('_2026', '_2025'))
+            capacity_growth_df = capacity_growth_df[capacity_growth_df['容量'].notna() & (capacity_growth_df['容量'] != '')]
+            capacity_growth_df['成长率'] = ((capacity_growth_df[f'{sales_col}_2026'] - capacity_growth_df[f'{sales_col}_2025']) / capacity_growth_df[f'{sales_col}_2025'] * 100).fillna(0)
+            capacity_growth_df = capacity_growth_df[~capacity_growth_df['成长率'].isin([float('inf'), float('-inf')])]
+            capacity_growth_df = capacity_growth_df.sort_values('成长率', ascending=False)
             
-            if has_capacity_2026 and has_capacity_2025 and sales_col and sales_col in filtered_2026_with_attrs.columns and sales_col in filtered_2025_with_attrs.columns:
-                capacity_growth_df = pd.DataFrame()
-                capacity_2026 = filtered_2026_with_attrs[filtered_2026_with_attrs['容量'].notna()].groupby('容量')[sales_col].sum().reset_index()
-                capacity_2025 = filtered_2025_with_attrs[filtered_2025_with_attrs['容量'].notna()].groupby('容量')[sales_col].sum().reset_index()
-                
-                capacity_growth_df = pd.merge(capacity_2026, capacity_2025, on='容量', suffixes=('_2026', '_2025'))
-                capacity_growth_df = capacity_growth_df[capacity_growth_df['容量'].notna() & (capacity_growth_df['容量'] != '')]
-                capacity_growth_df['成长率'] = ((capacity_growth_df[f'{sales_col}_2026'] - capacity_growth_df[f'{sales_col}_2025']) / capacity_growth_df[f'{sales_col}_2025'] * 100).fillna(0)
-                capacity_growth_df = capacity_growth_df[~capacity_growth_df['成长率'].isin([float('inf'), float('-inf')])]
-                capacity_growth_df = capacity_growth_df.sort_values('成长率', ascending=False)
-                
-                import plotly.graph_objects as go
-                fig_capacity_growth = go.Figure()
-                
-                positive_growth = capacity_growth_df[capacity_growth_df['成长率'] >= 0]
-                negative_growth = capacity_growth_df[capacity_growth_df['成长率'] < 0]
-                
-                if not positive_growth.empty:
-                    fig_capacity_growth.add_trace(go.Bar(
-                        y=positive_growth['容量'],
-                        x=positive_growth['成长率'],
-                        orientation='h',
-                        marker_color='#dc2626',
-                        marker_cornerradius=4,
-                        text=positive_growth['成长率'].apply(lambda x: f'+{x:.2f}%'),
-                        textposition='outside',
-                        textfont=dict(size=12, weight='bold'),
-                        hovertemplate='销量: %{customdata:.2f}<extra></extra>',
-                        customdata=positive_growth[f'{sales_col}_2026'],
-                        hoverlabel=dict(font=dict(size=14, weight='bold'))
-                    ))
-                
-                if not negative_growth.empty:
-                    fig_capacity_growth.add_trace(go.Bar(
-                        y=negative_growth['容量'],
-                        x=negative_growth['成长率'],
-                        orientation='h',
-                        marker_color='#0360EA',
-                        marker_cornerradius=4,
-                        text=negative_growth['成长率'].apply(lambda x: f'{x:.2f}%'),
-                        textposition='outside',
-                        textfont=dict(size=12, weight='bold'),
-                        hovertemplate='销量: %{customdata:.2f}<extra></extra>',
-                        customdata=negative_growth[f'{sales_col}_2026'],
-                        hoverlabel=dict(font=dict(size=14, weight='bold'))
-                    ))
-                
-                max_abs_value = abs(capacity_growth_df['成长率']).max() if len(capacity_growth_df) > 0 else 10
-                x_range = min(max_abs_value * 1.3, 100)
-                
-                fig_capacity_growth.update_layout(
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    yaxis=dict(
-                        type='category',
-                        showgrid=False,
-                        tickfont=dict(size=12),
-                        categoryorder='array',
-                        categoryarray=capacity_growth_df['容量'].astype(str).tolist()[::-1]
-                    ),
-                    xaxis=dict(
-                        title='',
-                        showgrid=False,
-                        showline=False,
-                        zeroline=True,
-                        zerolinecolor='#9ca3af',
-                        zerolinewidth=1,
-                        showticklabels=False,
-                        range=[-x_range, x_range]
-                    ),
-                    margin=dict(l=50, r=100, t=10, b=10),
-                    height=240,
-                    showlegend=False
-                )
-                
-                st.plotly_chart(fig_capacity_growth, use_container_width=True)
-            else:
-                st.markdown("<div style='text-align: center; color: #9ca3af; padding-top: 60px;'>无法获取容量信息</div>", unsafe_allow_html=True)
+            fig_capacity_growth = go.Figure()
+            
+            colors = ['#059669' if x >= 0 else '#dc2626' for x in capacity_growth_df['成长率']]
+            
+            fig_capacity_growth.add_trace(go.Bar(
+                y=capacity_growth_df['容量'],
+                x=capacity_growth_df['成长率'],
+                orientation='h',
+                marker_color=colors,
+                marker_cornerradius=4,
+                text=capacity_growth_df['成长率'].apply(lambda x: f'+{x:.2f}%' if x >= 0 else f'{x:.2f}%'),
+                textposition='inside',
+                insidetextanchor='middle',
+                textfont=dict(size=11, weight='bold', color='#ffffff'),
+                hovertemplate='销量: %{customdata:.2f}<extra></extra>',
+                customdata=capacity_growth_df[f'{sales_col}_2026'],
+                hoverlabel=dict(font=dict(size=14, weight='bold'))
+            ))
+            
+            max_abs_value = abs(capacity_growth_df['成长率']).max() if len(capacity_growth_df) > 0 else 10
+            x_range = min(max_abs_value * 1.3, 100)
+            
+            fig_capacity_growth.update_layout(
+                plot_bgcolor='rgba(248,250,252,1)',
+                paper_bgcolor='rgba(255,255,255,0)',
+                yaxis=dict(
+                    type='category',
+                    showgrid=False,
+                    tickfont=dict(size=12, color='#374151'),
+                    categoryorder='array',
+                    categoryarray=capacity_growth_df['容量'].astype(str).tolist()[::-1]
+                ),
+                xaxis=dict(
+                    title=dict(text='成长率 (%)', font=dict(size=11, color='#6B7280')),
+                    showgrid=True,
+                    gridcolor='#E5E7EB',
+                    gridwidth=1,
+                    showline=False,
+                    zeroline=True,
+                    zerolinecolor='#DC2626',
+                    zerolinewidth=2,
+                    showticklabels=True,
+                    tickfont=dict(size=11, color='#6B7280'),
+                    range=[-x_range, x_range]
+                ),
+                margin=dict(l=60, r=60, t=20, b=20),
+                height=300,
+                showlegend=False,
+                dragmode='zoom'
+            )
+            
+            capacity_event = st.plotly_chart(fig_capacity_growth, use_container_width=True, key='capacity_growth_chart', on_select="rerun", config={'scrollZoom': True})
+            
+            if capacity_event and hasattr(capacity_event, 'selection') and capacity_event.selection.points:
+                selected_y = capacity_event.selection.points[0].get('y')
+                if selected_y:
+                    st.session_state.selected_capacity = selected_y
+            elif not st.session_state.get('clear_selection_triggered'):
+                selected_points = st.session_state.get('capacity_growth_chart', {}).get('selection', {}).get('points', [])
+                if selected_points:
+                    st.session_state.selected_capacity = selected_points[0].get('y')
+            
+            if st.session_state.selected_capacity:
+                st.markdown(f"<div style='font-size: 12px; color: #6B7280; text-align: center;'>已选择容量: {st.session_state.selected_capacity}</div>", unsafe_allow_html=True)
+        else:
+            st.markdown("<div style='text-align: center; color: #9ca3af; padding-top: 60px;'>无法获取容量信息</div>", unsafe_allow_html=True)
+        
+        st.markdown("</div>", unsafe_allow_html=True)
 
     with col_new2:
-        card_container = st.container(border=True)
-        with card_container:
-            st.markdown("<div class='section-title-purple'>预算达成（容量别）</div>", unsafe_allow_html=True)
+        st.markdown("<div class='section-title-purple'>预算达成（容量别）</div>", unsafe_allow_html=True)
+        st.markdown("<div class='chart-scroll-container'>", unsafe_allow_html=True)
+        
+        has_capacity_actual = '容量' in filtered_2026_with_attrs.columns and filtered_2026_with_attrs['容量'].notna().any()
+        has_capacity_budget = '容量' in filtered_budget_with_attrs.columns and filtered_budget_with_attrs['容量'].notna().any()
+        
+        if has_capacity_actual and has_capacity_budget and sales_col and budget_col and sales_col in filtered_2026_with_attrs.columns and budget_col in filtered_budget_with_attrs.columns:
+            capacity_budget_df = pd.DataFrame()
             
-            has_capacity_actual = '容量' in filtered_2026_with_attrs.columns and filtered_2026_with_attrs['容量'].notna().any()
-            has_capacity_budget = '容量' in filtered_budget_with_attrs.columns and filtered_budget_with_attrs['容量'].notna().any()
+            actual_data = filtered_2026_with_attrs[filtered_2026_with_attrs['容量'].notna()]
+            budget_data = filtered_budget_with_attrs[filtered_budget_with_attrs['容量'].notna()]
             
-            if has_capacity_actual and has_capacity_budget and sales_col and budget_col and sales_col in filtered_2026_with_attrs.columns and budget_col in filtered_budget_with_attrs.columns:
-                capacity_budget_df = pd.DataFrame()
-                capacity_actual = filtered_2026_with_attrs[filtered_2026_with_attrs['容量'].notna()].groupby('容量')[sales_col].sum().reset_index()
-                capacity_budget = filtered_budget_with_attrs[filtered_budget_with_attrs['容量'].notna()].groupby('容量')[budget_col].sum().reset_index()
-                
-                capacity_budget_df = pd.merge(capacity_actual, capacity_budget, on='容量', suffixes=('_actual', '_budget'))
-                capacity_budget_df = capacity_budget_df[capacity_budget_df['容量'].notna() & (capacity_budget_df['容量'] != '')]
-                capacity_budget_df['达成率'] = (capacity_budget_df.iloc[:, 1] / capacity_budget_df.iloc[:, 2] * 100).fillna(0)
-                capacity_budget_df['达成率差值'] = capacity_budget_df['达成率'] - 100
-                capacity_budget_df = capacity_budget_df[~capacity_budget_df['达成率差值'].isin([float('inf'), float('-inf')])]
-                capacity_budget_df = capacity_budget_df.sort_values('达成率', ascending=False)
-                
-                import plotly.graph_objects as go
-                fig_capacity_budget = go.Figure()
-                
-                positive_budget = capacity_budget_df[capacity_budget_df['达成率差值'] >= 0]
-                negative_budget = capacity_budget_df[capacity_budget_df['达成率差值'] < 0]
-                
-                if not positive_budget.empty:
-                    fig_capacity_budget.add_trace(go.Bar(
-                        y=positive_budget['容量'],
-                        x=positive_budget['达成率差值'],
-                        orientation='h',
-                        marker_color='#dc2626',
-                        marker_cornerradius=4,
-                        text=positive_budget['达成率差值'].apply(lambda x: f'+{x:.2f}%'),
-                        textposition='outside',
-                        textfont=dict(size=12, weight='bold'),
-                        hovertemplate='销量: %{customdata:.2f}<extra></extra>',
-                        customdata=positive_budget[f'{sales_col}_actual'],
-                        hoverlabel=dict(font=dict(size=14, weight='bold'))
-                    ))
-                
-                if not negative_budget.empty:
-                    fig_capacity_budget.add_trace(go.Bar(
-                        y=negative_budget['容量'],
-                        x=negative_budget['达成率差值'],
-                        orientation='h',
-                        marker_color='#0360EA',
-                        marker_cornerradius=4,
-                        text=negative_budget['达成率差值'].apply(lambda x: f'{x:.2f}%'),
-                        textposition='outside',
-                        textfont=dict(size=12, weight='bold'),
-                        hovertemplate='销量: %{customdata:.2f}<extra></extra>',
-                        customdata=negative_budget[f'{sales_col}_actual'],
-                        hoverlabel=dict(font=dict(size=14, weight='bold'))
-                    ))
-                
-                max_abs_value = abs(capacity_budget_df['达成率差值']).max() if len(capacity_budget_df) > 0 else 10
-                x_range = min(max_abs_value * 1.3, 100)
-                
-                fig_capacity_budget.update_layout(
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    yaxis=dict(
-                        type='category',
-                        showgrid=False,
-                        tickfont=dict(size=12),
-                        categoryorder='array',
-                        categoryarray=capacity_budget_df['容量'].astype(str).tolist()[::-1]
-                    ),
-                    xaxis=dict(
-                        title='',
-                        showgrid=False,
-                        showline=False,
-                        zeroline=True,
-                        zerolinecolor='#9ca3af',
-                        zerolinewidth=1,
-                        showticklabels=False,
-                        range=[-x_range, x_range]
-                    ),
-                    margin=dict(l=50, r=100, t=10, b=10),
-                    height=240,
-                    showlegend=False
-                )
-                
-                st.plotly_chart(fig_capacity_budget, use_container_width=True)
-            else:
-                st.markdown("<div style='text-align: center; color: #9ca3af; padding-top: 60px;'>无法获取容量或预算信息</div>", unsafe_allow_html=True)
+            capacity_actual = actual_data.groupby('容量')[sales_col].sum().reset_index()
+            capacity_budget = budget_data.groupby('容量')[budget_col].sum().reset_index()
+            
+            capacity_budget_df = pd.merge(capacity_actual, capacity_budget, on='容量', suffixes=('_actual', '_budget'))
+            capacity_budget_df = capacity_budget_df[capacity_budget_df['容量'].notna() & (capacity_budget_df['容量'] != '')]
+            capacity_budget_df['达成率'] = (capacity_budget_df.iloc[:, 1] / capacity_budget_df.iloc[:, 2] * 100).fillna(0)
+            capacity_budget_df['达成率差值'] = capacity_budget_df['达成率'] - 100
+            capacity_budget_df = capacity_budget_df[~capacity_budget_df['达成率差值'].isin([float('inf'), float('-inf')])]
+            capacity_budget_df = capacity_budget_df.sort_values('达成率', ascending=False)
+            
+            fig_capacity_budget = go.Figure()
+            
+            colors = ['#059669' if x >= 0 else '#dc2626' for x in capacity_budget_df['达成率差值']]
+            
+            fig_capacity_budget.add_trace(go.Bar(
+                y=capacity_budget_df['容量'],
+                x=capacity_budget_df['达成率差值'],
+                orientation='h',
+                marker_color=colors,
+                marker_cornerradius=4,
+                text=capacity_budget_df['达成率差值'].apply(lambda x: f'+{x:.2f}%' if x >= 0 else f'{x:.2f}%'),
+                textposition='inside',
+                insidetextanchor='middle',
+                textfont=dict(size=11, weight='bold', color='#ffffff'),
+                hovertemplate='销量: %{customdata:.2f}<extra></extra>',
+                customdata=capacity_budget_df[f'{sales_col}_actual'],
+                hoverlabel=dict(font=dict(size=14, weight='bold'))
+            ))
+            
+            max_abs_value = abs(capacity_budget_df['达成率差值']).max() if len(capacity_budget_df) > 0 else 10
+            x_range = min(max_abs_value * 1.3, 100)
+            
+            fig_capacity_budget.update_layout(
+                plot_bgcolor='rgba(248,250,252,1)',
+                paper_bgcolor='rgba(255,255,255,0)',
+                yaxis=dict(
+                    type='category',
+                    showgrid=False,
+                    tickfont=dict(size=12, color='#374151'),
+                    categoryorder='array',
+                    categoryarray=capacity_budget_df['容量'].astype(str).tolist()[::-1]
+                ),
+                xaxis=dict(
+                    title=dict(text='达成率差值 (%)', font=dict(size=11, color='#6B7280')),
+                    showgrid=True,
+                    gridcolor='#E5E7EB',
+                    gridwidth=1,
+                    showline=False,
+                    zeroline=True,
+                    zerolinecolor='#DC2626',
+                    zerolinewidth=2,
+                    showticklabels=True,
+                    tickfont=dict(size=11, color='#6B7280'),
+                    range=[-x_range, x_range]
+                ),
+                margin=dict(l=60, r=60, t=20, b=20),
+                height=300,
+                showlegend=False,
+                dragmode='zoom'
+            )
+        
+            st.plotly_chart(fig_capacity_budget, use_container_width=True, config={'scrollZoom': True})
+        else:
+            st.markdown("<div style='text-align: center; color: #9ca3af; padding-top: 60px;'>无法获取容量或预算信息</div>", unsafe_allow_html=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)
 
     with col_new3:
         card_container = st.container(border=True)
@@ -2715,26 +2870,43 @@ elif st.session_state.current_page == '历史销量':
             st.markdown("<div class='section-title-purple'>26年实际销量（月分别）</div>", unsafe_allow_html=True)
             
             if '月份' in filtered_2026.columns and sales_col and sales_col in filtered_2026.columns:
-                monthly_sales_2026 = filtered_2026.groupby('月份')[sales_col].sum().reindex(months_order, fill_value=0).reset_index()
+                monthly_data = filtered_2026.copy()
                 
-                import plotly.graph_objects as go
+                monthly_sales_2026 = monthly_data.groupby('月份')[sales_col].sum().reindex(months_order, fill_value=0).reset_index()
+                
                 fig_monthly_2026 = go.Figure()
                 fig_monthly_2026.add_trace(go.Bar(
                     x=monthly_sales_2026['月份'],
                     y=monthly_sales_2026[sales_col],
-                    marker_color='#0360EA',
+                    marker_color='#3B82F6',
+                    marker_line_width=0,
                     marker_cornerradius=6,
-                    text=monthly_sales_2026[sales_col].apply(lambda x: f'{x:.2f}' if x > 0 else ''),
+                    text=monthly_sales_2026[sales_col].apply(lambda x: f'{x:.0f}' if x > 0 else ''),
                     textposition='outside',
-                    textfont=dict(size=12, weight='bold', color='#0360EA')
+                    textfont=dict(size=11, weight='bold', color='#1D4ED8')
                 ))
                 fig_monthly_2026.update_layout(
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    yaxis=dict(showgrid=False, showline=False, zeroline=False, tickfont=dict(size=12)),
-                    xaxis=dict(showgrid=False, showline=False, showticklabels=True, tickfont=dict(size=11)),
-                    margin=dict(l=50, r=50, t=10, b=50),
-                    height=240,
+                    plot_bgcolor='rgba(248,250,252,1)',
+                    paper_bgcolor='rgba(255,255,255,0)',
+                    yaxis=dict(
+                        title=dict(text='销量', font=dict(size=11, color='#6B7280')),
+                        showgrid=True,
+                        gridcolor='#E5E7EB',
+                        gridwidth=1,
+                        showline=False,
+                        zeroline=True,
+                        zerolinecolor='#9CA3AF',
+                        zerolinewidth=1,
+                        tickfont=dict(size=11, color='#6B7280')
+                    ),
+                    xaxis=dict(
+                        showgrid=False,
+                        showline=False,
+                        showticklabels=True,
+                        tickfont=dict(size=11, color='#374151')
+                    ),
+                    margin=dict(l=50, r=50, t=20, b=50),
+                    height=300,
                     showlegend=False
                 )
                 st.plotly_chart(fig_monthly_2026, use_container_width=True)
@@ -2763,22 +2935,26 @@ elif st.session_state.current_page == '历史销量':
     if budget_col and budget_col in filtered_budget.columns:
         filtered_budget[budget_col] = pd.to_numeric(filtered_budget[budget_col], errors='coerce').fillna(0)
     
-    if '月份' in filtered_2026.columns and sales_col:
-        monthly_2026 = filtered_2026.groupby('月份')[sales_col].sum().reindex(months_order, fill_value=0).reset_index()
+    filtered_2026_for_compare = filtered_2026.copy()
+    filtered_2025_for_compare = filtered_2025.copy()
+    filtered_budget_for_compare = filtered_budget.copy()
+    
+    if '月份' in filtered_2026_for_compare.columns and sales_col:
+        monthly_2026 = filtered_2026_for_compare.groupby('月份')[sales_col].sum().reindex(months_order, fill_value=0).reset_index()
     else:
         monthly_2026 = pd.DataFrame({'月份': months_order, '销量': [0]*12})
         if sales_col:
             monthly_2026 = monthly_2026.rename(columns={'销量': sales_col})
     
-    if '月份' in filtered_2025.columns and sales_col:
-        monthly_2025 = filtered_2025.groupby('月份')[sales_col].sum().reindex(months_order, fill_value=0).reset_index()
+    if '月份' in filtered_2025_for_compare.columns and sales_col:
+        monthly_2025 = filtered_2025_for_compare.groupby('月份')[sales_col].sum().reindex(months_order, fill_value=0).reset_index()
     else:
         monthly_2025 = pd.DataFrame({'月份': months_order, '销量': [0]*12})
         if sales_col:
             monthly_2025 = monthly_2025.rename(columns={'销量': sales_col})
     
-    if '月份' in filtered_budget.columns:
-        monthly_budget = filtered_budget.groupby('月份')[budget_col].sum().reindex(months_order, fill_value=0).reset_index()
+    if '月份' in filtered_budget_for_compare.columns:
+        monthly_budget = filtered_budget_for_compare.groupby('月份')[budget_col].sum().reindex(months_order, fill_value=0).reset_index()
     else:
         monthly_budget = pd.DataFrame({'月份': months_order, budget_col: [0]*12})
 
@@ -2798,93 +2974,93 @@ elif st.session_state.current_page == '历史销量':
     )
 
     def create_trend_chart(monthly_compare, sales_col):
-        import plotly.graph_objects as go
         
         fig_trend = go.Figure()
         
-        fig_trend.add_trace(go.Bar(
-            x=monthly_compare['月份'],
-            y=monthly_compare[f'{sales_col}_2026'],
-            name='26年销量',
-            marker_color='#0360EA',
-            marker_line_width=0,
-            marker_cornerradius=6,
-            text=monthly_compare[f'{sales_col}_2026'].apply(lambda x: f'{x:.2f}' if x > 0 else ''),
-            textposition='outside',
-            textfont=dict(size=10, weight='bold', color='#0360EA')
-        ))
-        
-        fig_trend.add_trace(go.Bar(
-            x=monthly_compare['月份'],
-            y=monthly_compare[f'{sales_col}_2025'],
-            name='25年销量',
-            marker_color='#BDE4FC',
-            marker_line_width=0,
-            marker_cornerradius=6,
-            text=monthly_compare[f'{sales_col}_2025'].apply(lambda x: f'{x:.2f}' if x > 0 else ''),
-            textposition='outside',
-            textfont=dict(size=10, weight='bold', color='#0360EA')
-        ))
-        
-        fig_trend.update_layout(
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
-            yaxis=dict(title='销量', showgrid=False, showline=False, zeroline=False, tickfont=dict(size=11)),
-            xaxis=dict(title='', showgrid=False, showline=False, tickfont=dict(size=12)),
-            legend=dict(title='', orientation='h', y=-0.15, x=0.5, xanchor='center', font=dict(size=12)),
-            margin=dict(l=50, r=80, t=40, b=60),
-            bargap=0.15,
-            bargroupgap=0.1,
-            barmode='group',
-            height=315,
-            showlegend=True
-        )
-        
-        # 添加同比折线（灰绿色虚线）
-        filtered_data = monthly_compare[
-            (monthly_compare[f'{sales_col}_2026'] > 0) & 
-            (pd.notna(monthly_compare['增长率'])) & 
-            (abs(monthly_compare['增长率']) != float('inf'))
-        ].copy()
-        fig_trend.add_trace(go.Scatter(
-            x=filtered_data['月份'],
-            y=filtered_data['增长率'],
-            name='同比',
-            mode='lines+markers',
-            marker=dict(color='#6B7280', size=6, symbol='circle'),
-            line=dict(color='#6B7280', width=2, dash='dash'),
-            yaxis='y2'
-        ))
-        
-        # 在柱形上方添加增长率标签（带箭头，增大字号）
-        max_sales = max(monthly_compare[f'{sales_col}_2026'].max(), monthly_compare[f'{sales_col}_2025'].max()) if len(monthly_compare) > 0 else 1
+        max_val = max(monthly_compare[f'{sales_col}_2026'].max(), monthly_compare[f'{sales_col}_2025'].max()) if len(monthly_compare) > 0 else 1
+        max_range = max_val * 1.3
         
         for i, row in monthly_compare.iterrows():
-            if row[f'{sales_col}_2026'] > 0 and pd.notna(row['增长率']) and abs(row['增长率']) != float('inf'):
+            x_val = i
+            
+            fig_trend.add_trace(go.Bar(
+                x=[x_val, x_val],
+                y=[0, max_range],
+                marker_color='#F3F4F6',
+                marker_line_width=0,
+                showlegend=False,
+                hoverinfo='none',
+                opacity=0.5,
+                width=0.6
+            ))
+            
+            fig_trend.add_trace(go.Bar(
+                x=[x_val, x_val],
+                y=[0, row[f'{sales_col}_2025']],
+                marker_color='#93C5FD',
+                marker_line_width=0,
+                showlegend=False if i > 0 else True,
+                name='25年销量',
+                hovertemplate=f'25年销量: {row[f"{sales_col}_2025"]:.0f}<extra></extra>',
+                width=0.45
+            ))
+            
+            fig_trend.add_trace(go.Bar(
+                x=[x_val, x_val],
+                y=[0, row[f'{sales_col}_2026']],
+                marker_color='#3B82F6',
+                marker_line_width=0,
+                showlegend=False if i > 0 else True,
+                name='26年销量',
+                hovertemplate=f'26年销量: {row[f"{sales_col}_2026"]:.0f}<extra></extra>',
+                width=0.3
+            ))
+            
+            if pd.notna(row['增长率']) and abs(row['增长率']) != float('inf'):
                 arrow = '↑' if row['增长率'] >= 0 else '↓'
                 arrow_color = '#166534' if row['增长率'] >= 0 else '#dc2626'
-                text = f"{arrow} {abs(row['增长率']):.2f}%"
+                text = f"{arrow}{abs(row['增长率']):.1f}%"
                 
                 fig_trend.add_annotation(
-                    x=row['月份'],
-                    y=max(row[f'{sales_col}_2026'], row[f'{sales_col}_2025']) + max_sales * 0.1 if max_sales > 0 else 0.2,
+                    x=x_val,
+                    y=max(row[f'{sales_col}_2026'], row[f'{sales_col}_2025']) + max_range * 0.08,
                     text=text,
                     showarrow=False,
-                    font=dict(color=arrow_color, size=14, weight='bold')
+                    font=dict(color=arrow_color, size=11, weight='bold'),
+                    xanchor='center',
+                    yanchor='bottom'
                 )
-
+        
         fig_trend.update_layout(
-            yaxis2=dict(
-                title='增长率 (%)',
-                overlaying='y',
-                side='right',
+            plot_bgcolor='rgba(248,250,252,1)',
+            paper_bgcolor='rgba(255,255,255,0)',
+            xaxis=dict(
+                title='',
                 showgrid=False,
                 showline=False,
-                zeroline=False,
-                tickfont=dict(size=11)
-            )
+                tickfont=dict(size=12, color='#374151'),
+                tickvals=list(range(len(monthly_compare))),
+                ticktext=monthly_compare['月份'].tolist()
+            ),
+            yaxis=dict(
+                title=dict(text='销量', font=dict(size=12, color='#6B7280')),
+                showgrid=True,
+                gridcolor='#E5E7EB',
+                gridwidth=1,
+                showline=False,
+                zeroline=True,
+                zerolinecolor='#9CA3AF',
+                zerolinewidth=1,
+                tickfont=dict(size=11, color='#6B7280'),
+                range=[0, max_range]
+            ),
+            legend=dict(title='', orientation='h', y=-0.15, x=0.5, xanchor='center', font=dict(size=12)),
+            margin=dict(l=60, r=40, t=60, b=70),
+            height=360,
+            showlegend=True,
+            barmode='overlay'
         )
-
+        
         return fig_trend
 
     col1, col2 = st.columns(2, gap='medium')
@@ -2901,89 +3077,92 @@ elif st.session_state.current_page == '历史销量':
         with card_container:
             st.markdown("<div class='section-title-purple'>26年预算达成分析</div>", unsafe_allow_html=True)
 
-            import plotly.graph_objects as go
             
             fig_budget = go.Figure()
             
-            fig_budget.add_trace(go.Bar(
-                x=monthly_compare['月份'],
-                y=monthly_compare[f'{sales_col}_2026'],
-                name='销量_2026',
-                marker_color='#0360EA',
-                marker_line_width=0,
-                marker_cornerradius=6,
-                text=monthly_compare[f'{sales_col}_2026'].apply(lambda x: f'{x:.2f}' if x > 0 else ''),
-                textposition='outside',
-                textfont=dict(size=10, weight='bold', color='#0360EA')
-            ))
-            
-            fig_budget.add_trace(go.Bar(
-                x=monthly_compare['月份'],
-                y=monthly_compare[budget_col],
-                name='预算',
-                marker_color='#BDE4FC',
-                marker_line_width=0,
-                marker_cornerradius=6,
-                text=monthly_compare[budget_col].apply(lambda x: f'{x:.2f}' if x > 0 else ''),
-                textposition='outside',
-                textfont=dict(size=10, weight='bold', color='#0360EA')
-            ))
-            
-            fig_budget.update_layout(
-                plot_bgcolor='rgba(0,0,0,0)',
-                paper_bgcolor='rgba(0,0,0,0)',
-                yaxis=dict(title='销量', showgrid=False, showline=False, zeroline=False, tickfont=dict(size=11)),
-                xaxis=dict(title='', showgrid=False, showline=False, tickfont=dict(size=12)),
-                legend=dict(title='', orientation='h', y=-0.15, x=0.5, xanchor='center', font=dict(size=12)),
-                margin=dict(l=50, r=80, t=40, b=60),
-                bargap=0.15,
-                bargroupgap=0.1,
-                barmode='group',
-                height=315,
-                showlegend=True
-            )
-            
-            # 添加预算达成率折线（灰绿色虚线）
-            filtered_data = monthly_compare[monthly_compare[f'{sales_col}_2026'] > 0].copy()
-            fig_budget.add_trace(go.Scatter(
-                x=filtered_data['月份'],
-                y=filtered_data['预算达成'],
-                name='预算达成',
-                mode='lines+markers',
-                marker=dict(color='#6B7280', size=6, symbol='circle'),
-                line=dict(color='#6B7280', width=2, dash='dash'),
-                yaxis='y2'
-            ))
-            
-            # 配置双Y轴
-            fig_budget.update_layout(
-                yaxis2=dict(
-                    title='预算达成 (%)',
-                    overlaying='y',
-                    side='right',
-                    showgrid=False,
-                    showline=False,
-                    zeroline=False,
-                    tickfont=dict(size=11)
-                )
-            )
-            
-            # 在柱形上方添加预算达成率标签（带箭头）
-            max_budget_val = max(monthly_compare[f'{sales_col}_2026'].max(), monthly_compare[budget_col].max()) if len(monthly_compare) > 0 else 1
+            max_val = max(monthly_compare[f'{sales_col}_2026'].max(), monthly_compare[budget_col].max()) if len(monthly_compare) > 0 else 1
+            max_range = max_val * 1.3
             
             for i, row in monthly_compare.iterrows():
+                x_val = i
+                
+                fig_budget.add_trace(go.Bar(
+                    x=[x_val, x_val],
+                    y=[0, max_range],
+                    marker_color='#F3F4F6',
+                    marker_line_width=0,
+                    showlegend=False,
+                    hoverinfo='none',
+                    opacity=0.5,
+                    width=0.6
+                ))
+                
+                fig_budget.add_trace(go.Bar(
+                    x=[x_val, x_val],
+                    y=[0, row[budget_col]],
+                    marker_color='#FCD34D',
+                    marker_line_width=0,
+                    showlegend=False if i > 0 else True,
+                    name='预算',
+                    hovertemplate=f'预算: {row[budget_col]:.0f}<extra></extra>',
+                    width=0.45
+                ))
+                
+                fig_budget.add_trace(go.Bar(
+                    x=[x_val, x_val],
+                    y=[0, row[f'{sales_col}_2026']],
+                    marker_color='#3B82F6',
+                    marker_line_width=0,
+                    showlegend=False if i > 0 else True,
+                    name='销量',
+                    hovertemplate=f'销量: {row[f"{sales_col}_2026"]:.0f}<extra></extra>',
+                    width=0.3
+                ))
+                
                 if row[f'{sales_col}_2026'] > 0:
                     arrow_color = '#166534' if row['预算达成'] >= 100 else '#dc2626'
                     arrow = '↑' if row['预算达成'] >= 100 else '↓'
-                    text = f"{arrow} {row['预算达成']:.2f}%"
+                    text = f"{arrow}{row['预算达成']:.1f}%"
                     
                     fig_budget.add_annotation(
-                        x=row['月份'],
-                        y=row[f'{sales_col}_2026'] + max_budget_val * 0.1 if max_budget_val > 0 else 0.2,
+                        x=x_val,
+                        y=max(row[f'{sales_col}_2026'], row[budget_col]) + max_range * 0.08,
                         text=text,
                         showarrow=False,
-                        font=dict(color=arrow_color, size=14, weight='bold')
+                        font=dict(color=arrow_color, size=11, weight='bold'),
+                        xanchor='center',
+                        yanchor='bottom'
                     )
+            
+            fig_budget.update_layout(
+                plot_bgcolor='rgba(248,250,252,1)',
+                paper_bgcolor='rgba(255,255,255,0)',
+                xaxis=dict(
+                    title='',
+                    showgrid=False,
+                    showline=False,
+                    tickfont=dict(size=12, color='#374151'),
+                    tickvals=list(range(len(monthly_compare))),
+                    ticktext=monthly_compare['月份'].tolist()
+                ),
+                yaxis=dict(
+                    title=dict(text='销量', font=dict(size=12, color='#6B7280')),
+                    showgrid=True,
+                    gridcolor='#E5E7EB',
+                    gridwidth=1,
+                    showline=False,
+                    zeroline=True,
+                    zerolinecolor='#9CA3AF',
+                    zerolinewidth=1,
+                    tickfont=dict(size=11, color='#6B7280'),
+                    range=[0, max_range]
+                ),
+                legend=dict(title='', orientation='h', y=-0.15, x=0.5, xanchor='center', font=dict(size=12)),
+                margin=dict(l=60, r=40, t=60, b=70),
+                height=360,
+                showlegend=True,
+                barmode='overlay'
+            )
             
             st.plotly_chart(fig_budget, use_container_width=True)
 
@@ -4190,3 +4369,672 @@ if st.session_state.show_flavor_analysis:
             modal_html += '</div></div></div>'
             
             st.markdown(modal_html, unsafe_allow_html=True)
+
+elif st.session_state.current_page == '调出分析':
+    html_file_path = r'c:\Users\50400325\Desktop\预算执行分析-天津调出-单文件版.html'
+    try:
+        with open(html_file_path, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        
+        st.markdown("""
+            <style>
+            .header-title-custom {
+                font-size: 20px;
+                font-weight: 600;
+                color: #1E293B;
+            }
+            .header-subtitle-custom {
+                font-size: 14px;
+                color: #64748b;
+                margin-top: 4px;
+            }
+            .export-btn-area {
+                display: flex;
+                justify-content: center;
+                padding: 20px 0;
+                border-top: 1px solid #e2e8f0;
+                margin-top: 16px;
+            }
+            .export-btn {
+                background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+                color: white;
+                border: none;
+                padding: 12px 32px;
+                border-radius: 8px;
+                font-size: 14px;
+                font-weight: 500;
+                cursor: pointer;
+                box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+                transition: all 0.2s;
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .export-btn:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+            }
+            </style>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("""
+            <div>
+                <div class='header-title-custom'>调出分析</div>
+                <div class='header-subtitle-custom'>预算执行分析 · 天津调出</div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        st.components.v1.html(html_content, height=800, scrolling=True)
+        
+        st.markdown("""
+            <div class='export-btn-area'>
+                <button onclick="window.print()" class="export-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
+                        <polyline points="10 9 9 9 8 9"/>
+                    </svg>
+                    导出PDF
+                </button>
+            </div>
+            <style>
+            @media print {
+                .export-btn-area, .stApp header, .stSidebar {
+                    display: none !important;
+                }
+                iframe {
+                    height: auto !important;
+                    max-height: none !important;
+                    overflow: visible !important;
+                }
+            }
+            </style>
+        """, unsafe_allow_html=True)
+        
+    except FileNotFoundError:
+        st.error(f"文件未找到: {html_file_path}")
+    except Exception as e:
+        st.error(f"加载文件失败: {str(e)}")
+
+elif st.session_state.current_page == '大修进度':
+    st.markdown("""
+        <div class='header-card'>
+            <div class='header-title'>大修进度</div>
+            <div class='header-subtitle'>生产线大修计划与进度跟踪</div>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    import pandas as pd
+    import plotly.express as px
+    import plotly.graph_objects as go
+    from datetime import datetime
+    import io
+    
+    maintenance_data = {
+        '工厂': ['TTJ2', 'TTJ1', 'TTJ1', 'TTJ2', 'TTJ1', 'TTJ2', 'TTJ2', 'TTJ2', 'TTJ2', 'TYP1', 'TYP1', 'TYP1', 'TYP1', 'TYP1', 'TYP1'],
+        '生产线名称': ['SIDEL 无菌 2011', '乐惠-保利隆', 'TBA19 (新)', 'SIDEL 无菌 2011', 'TBA19', 'SIDEL 无菌 2011', 'SIDEL无菌大小兼用线(12)', 'SIDEL 无菌 2011', 'SIDEL 无菌 2011', 'SIDEL无菌线', 'PROCOMAC38瓶口线', '彬台TBC.08大小兼用', 'SIDEL 无菌 2010', 'SIDEL CSD 40000大小兼用', '碳酸CAN线'],
+        '线别代码': ['W101', 'W303', 'W209', 'W102', 'W208', 'W103', 'W106', 'W104', 'W105', 'W111', 'W104', 'W108', 'W110', 'W112', 'W304'],
+        '开始时间': ['2026/12/14', '2026/09/26', '2026/09/30', '2026/09/26', '2026/09/30', '2026/08/25', '2026/09/26', '2026/10/23', '2026/11/25', '2026/10/10', '2026/11/24', '2026/10/06', '2027/01/02', '2026/09/02', '2026/09/26'],
+        '结束日期': ['2027/01/27', '2026/10/18', '2026/10/15', '2026/11/09', '2026/10/15', '2026/10/08', '2026/11/09', '2026/12/06', '2027/01/08', '2026/11/24', '2027/01/09', '2026/10/21', '2027/02/16', '2026/10/08', '2026/10/18'],
+        '任务完成度': ['未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始'],
+        '生产线类别': ['无菌', '热充', '无菌', '无菌', '无菌', '无菌', '无菌', '无菌', '无菌', '无菌', '无菌', '热充', '无菌', '无菌', '碳酸'],
+        '产线责任人': ['张红远', '王壮', '王壮', '张红远', '王壮', '张红远', '张红远', '张红远', '张红远', '芮宇', '芮宇', '芮宇', '芮宇', '王壮', '王壮'],
+        '产线可生产品项': ['500ML全系列', 'CAN6联包，24入，礼盒', 'TP6联包&24入', '500ML&1L全系列', 'TP24入', '500ML&1L全系列', '380/550ML喝开水 366/666碱性水', '500ML全系列', '2L&1L全系列', '330&350ML茶饮500ML奶茶/全系列', '佳得乐，星巴克，贝纳颂', '900冰红&百果乐缤纷', '350ML茶饮500ML茶的传人/鲜绿绿茶/中式1L全系列', '百事碳酸', '百事']
+    }
+    
+    df = pd.DataFrame(maintenance_data)
+    df['开始时间'] = pd.to_datetime(df['开始时间'], format='%Y/%m/%d')
+    df['结束日期'] = pd.to_datetime(df['结束日期'], format='%Y/%m/%d')
+    df['大修天数'] = (df['结束日期'] - df['开始时间']).dt.days + 1
+    st.session_state.maintenance_df = df
+    
+    total_lines = len(df)
+    factory_count = df['工厂'].nunique()
+    sterile_count = len(df[df['生产线类别'] == '无菌'])
+    hotfill_count = len(df[df['生产线类别'] == '热充'])
+    carbonic_count = len(df[df['生产线类别'] == '碳酸'])
+    
+    stats_html = """
+    <div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; padding: 24px;'>
+        <div style='background: linear-gradient(135deg, #EFF6FF 0%, #FFFFFF 100%); border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);'>
+            <div style='display: flex; align-items: center; gap: 12px;'>
+                <div style='width: 44px; height: 44px; background-color: #3B82F6; border-radius: 10px; display: flex; align-items: center; justify-content: center;'>
+                    <svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'>
+                        <rect x='3' y='3' width='18' height='18' rx='2' ry='2'/>
+                        <line x1='9' y1='9' x2='15' y2='9'/>
+                        <line x1='9' y1='15' x2='15' y2='15'/>
+                    </svg>
+                </div>
+                <div>
+                    <div style='font-size: 28px; font-weight: 700; color: #1e293b;'>{}</div>
+                    <div style='font-size: 14px; color: #64748b;'>总检修线数</div>
+                </div>
+            </div>
+        </div>
+        <div style='background: linear-gradient(135deg, #F5F3FF 0%, #FFFFFF 100%); border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(139, 92, 246, 0.08);'>
+            <div style='display: flex; align-items: center; gap: 12px;'>
+                <div style='width: 44px; height: 44px; background-color: #8B5CF6; border-radius: 10px; display: flex; align-items: center; justify-content: center;'>
+                    <svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'>
+                        <path d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/>
+                        <circle cx='9' cy='7' r='4'/>
+                        <path d='M23 21v-2a4 4 0 0 0-3-3.87'/>
+                        <path d='M16 3.13a4 4 0 0 1 0 7.75'/>
+                    </svg>
+                </div>
+                <div>
+                    <div style='font-size: 28px; font-weight: 700; color: #1e293b;'>{}</div>
+                    <div style='font-size: 14px; color: #64748b;'>涉及工厂数</div>
+                </div>
+            </div>
+        </div>
+        <div style='background: linear-gradient(135deg, #ECFDF5 0%, #FFFFFF 100%); border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.08);'>
+            <div style='display: flex; align-items: center; gap: 12px;'>
+                <div style='width: 44px; height: 44px; background-color: #10B981; border-radius: 10px; display: flex; align-items: center; justify-content: center;'>
+                    <svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'>
+                        <polyline points='22 7 13.5 15.5 8.5 10.5 2 17'/>
+                        <line x1='16' y1='7' x2='22' y2='7'/>
+                    </svg>
+                </div>
+                <div>
+                    <div style='font-size: 28px; font-weight: 700; color: #10B981;'>{}</div>
+                    <div style='font-size: 14px; color: #64748b;'>无菌线</div>
+                </div>
+            </div>
+        </div>
+        <div style='background: linear-gradient(135deg, #FFF7ED 0%, #FFFFFF 100%); border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(249, 115, 22, 0.08);'>
+            <div style='display: flex; align-items: center; gap: 12px;'>
+                <div style='width: 44px; height: 44px; background-color: #F97316; border-radius: 10px; display: flex; align-items: center; justify-content: center;'>
+                    <svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'>
+                        <path d='M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707'/>
+                    </svg>
+                </div>
+                <div>
+                    <div style='font-size: 28px; font-weight: 700; color: #F97316;'>{}</div>
+                    <div style='font-size: 14px; color: #64748b;'>热充线</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    """.format(total_lines, factory_count, sterile_count, hotfill_count)
+    
+    st.markdown(stats_html, unsafe_allow_html=True)
+    
+    display_df = df.copy()
+    factory_order = {'TTJ1': 0, 'TYP1': 1, 'TTJ2': 2}
+    display_df['工厂排序'] = df['工厂'].map(factory_order)
+    display_df['显示名称'] = display_df['工厂'] + '-' + display_df['线别代码'] + '-' + display_df['生产线名称']
+    display_df = display_df.sort_values(['工厂排序', '生产线名称'])
+    
+    fig_gantt = px.timeline(
+        display_df,
+        x_start="开始时间",
+        x_end="结束日期",
+        y="显示名称",
+        color="工厂",
+        color_discrete_map={'TTJ1': '#3B82F6', 'TYP1': '#F59E0B', 'TTJ2': '#10B981'},
+        hover_name="生产线名称",
+        hover_data={
+            '生产线名称': False,
+            '工厂': True,
+            '线别代码': True,
+            '产线责任人': True,
+            '任务完成度': True,
+            '产线可生产品项': True,
+            '开始时间': ':date',
+            '结束日期': ':date'
+        },
+        title='大修进度甘特图'
+    )
+    
+    month_lines = []
+    for month in pd.date_range(start='2026-08-01', end='2027-03-01', freq='MS'):
+        month_lines.append(dict(
+            type='line',
+            x0=month,
+            y0=0,
+            x1=month,
+            y1=1,
+            yref='paper',
+            line=dict(
+                color='#E2E8F0',
+                width=1,
+                dash='dash'
+            )
+        ))
+    
+    fig_gantt.update_layout(
+        legend=dict(
+            title='工厂',
+            orientation='h',
+            yanchor='bottom',
+            y=1.02,
+            xanchor='center',
+            x=0.5,
+            visible=True
+        ),
+        title_font=dict(size=16, color='#1e293b'),
+        xaxis_title='时间',
+        yaxis_title='工厂-线别代码-线别名称',
+        xaxis=dict(
+            tickformat='%Y-%m-%d',
+            range=[pd.Timestamp('2026-08-01'), pd.Timestamp('2027-02-28')],
+            gridcolor='rgba(0,0,0,0)'
+        ),
+        yaxis=dict(
+            autorange='reversed',
+            gridcolor='#e2e8f0'
+        ),
+        height=600,
+        plot_bgcolor='#ffffff',
+        paper_bgcolor='#f8fafc',
+        shapes=month_lines + [
+            dict(
+                type='line',
+                x0=pd.Timestamp.today(),
+                y0=0,
+                x1=pd.Timestamp.today(),
+                y1=1,
+                yref='paper',
+                line=dict(
+                    color='#EF4444',
+                    width=2,
+                    dash='dash'
+                )
+            )
+        ],
+        annotations=[
+            dict(
+                x=pd.Timestamp.today(),
+                y=1.02,
+                xref='x',
+                yref='paper',
+                text='当前日期',
+                showarrow=False,
+                font=dict(size=12, color='#EF4444')
+            )
+        ]
+    )
+    
+    fig_gantt.update_traces(
+        marker=dict(
+            line=dict(width=1, color='#ffffff')
+        ),
+        opacity=0.9
+    )
+    
+    st.plotly_chart(fig_gantt, use_container_width=True, config={'scrollZoom': True})
+    
+    import streamlit.components.v1 as components
+    components.html("""
+    <script>
+    (function() {
+        var observer = new MutationObserver(function(mutations) {
+            var plots = parent.document.querySelectorAll('.js-plotly-plot');
+            plots.forEach(function(plot) {
+                if (!plot.__legend_modified) {
+                    plot.__legend_modified = true;
+                    
+                    var originalOn = plot.on;
+                    plot.on = function(event, callback) {
+                        if (event === 'legendclick') {
+                            return;
+                        }
+                        return originalOn.call(this, event, callback);
+                    };
+                    
+                    var legendGroup = plot.querySelector('.legend');
+                    if (legendGroup) {
+                        var legendItems = legendGroup.querySelectorAll('.traces');
+                        legendItems.forEach(function(item) {
+                            var legendText = item.querySelector('.legendtext');
+                            if (legendText) {
+                                var factoryName = legendText.textContent.trim();
+                                
+                                item.addEventListener('click', function(e) {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    e.stopImmediatePropagation();
+                                    
+                                    var allTraces = plot.data;
+                                    var allVisible = allTraces.every(function(t) { return t.visible !== false && t.visible !== 'legendonly'; });
+                                    
+                                    if (allVisible) {
+                                        allTraces.forEach(function(trace) {
+                                            trace.visible = (trace.name === factoryName) ? true : 'legendonly';
+                                        });
+                                    } else {
+                                        allTraces.forEach(function(trace) {
+                                            trace.visible = true;
+                                        });
+                                    }
+                                    
+                                    parent.Plotly.redraw(plot);
+                                    return false;
+                                }, true);
+                            }
+                        });
+                    }
+                }
+            });
+        });
+        
+        observer.observe(parent.document.body, { childList: true, subtree: true });
+    })();
+    </script>
+    """, height=0)
+    
+    filtered_df = display_df.copy()
+    
+    st.markdown('<div class="card-title">大修明细表格</div>', unsafe_allow_html=True)
+    
+    st.markdown("""
+    <style>
+    .mtable-container {
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        border: 1px solid #E2E8F0;
+    }
+    .mtable {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        font-size: 14px;
+    }
+    .mtable thead tr {
+        background: linear-gradient(135deg, #1E293B 0%, #334155 100%);
+    }
+    .mtable th {
+        color: white;
+        font-weight: 600;
+        padding: 14px 16px;
+        text-align: left;
+        font-size: 14px;
+        white-space: nowrap;
+        position: relative;
+    }
+    .mtable th:first-child {
+        border-radius: 12px 0 0 0;
+    }
+    .mtable th:last-child {
+        border-radius: 0 12px 0 0;
+    }
+    .mtable th:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        right: 0;
+        top: 20%;
+        bottom: 20%;
+        width: 1px;
+        background: rgba(255,255,255,0.15);
+    }
+    .mtable tbody tr {
+        transition: all 0.2s ease;
+    }
+    .mtable tbody tr:nth-child(even) {
+        background-color: #F8FAFC;
+    }
+    .mtable tbody tr:hover {
+        background-color: #F1F5F9;
+        transform: scale(1.002);
+    }
+    .mtable td {
+        padding: 14px 16px;
+        border-bottom: 1px solid #E2E8F0;
+        vertical-align: middle;
+        white-space: nowrap;
+        line-height: 1.5;
+        font-size: 14px;
+    }
+    .mtable tbody tr:last-child td {
+        border-bottom: none;
+    }
+    .mtable tbody tr:last-child td:first-child {
+        border-radius: 0 0 0 12px;
+    }
+    .mtable tbody tr:last-child td:last-child {
+        border-radius: 0 0 12px 0;
+    }
+    .mtag {
+        display: inline-flex;
+        align-items: center;
+        padding: 5px 14px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 500;
+        letter-spacing: 0.3px;
+    }
+    .mtag-status-pending {
+        background: linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%);
+        color: #6B7280;
+    }
+    .mtag-status-inprogress {
+        background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%);
+        color: #2563EB;
+    }
+    .mtag-status-completed {
+        background: linear-gradient(135deg, #D1FAE5 0%, #A7F3D0 100%);
+        color: #059669;
+    }
+    .mtag-category-sterile {
+        background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);
+        color: #2563EB;
+    }
+    .mtag-category-hotfill {
+        background: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%);
+        color: #D97706;
+    }
+    .mtag-category-carbonate {
+        background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
+        color: #059669;
+    }
+    .mseq {
+        text-align: center;
+        color: #94A3B8;
+        font-weight: 500;
+        font-size: 14px;
+    }
+    .mduration {
+        font-family: 'SF Mono', 'Monaco', 'Consolas', 'Roboto Mono', monospace;
+        font-size: 13px;
+        color: #475569;
+    }
+    .medit-btn {
+        background: transparent;
+        border: 1.5px solid #CBD5E1;
+        cursor: pointer;
+        padding: 6px 16px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        color: #3B82F6;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .medit-btn:hover {
+        background-color: #EFF6FF;
+        border-color: #3B82F6;
+        box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+    }
+    .medit-btn:active {
+        transform: scale(0.98);
+    }
+    .mproduct-cell {
+        max-width: 220px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        display: inline-block;
+        font-size: 14px;
+        color: #475569;
+    }
+    .mtooltip {
+        position: relative;
+        display: inline-block;
+    }
+    .mtooltip::after {
+        content: attr(data-title);
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 8px 12px;
+        background: #1E293B;
+        color: white;
+        font-size: 13px;
+        border-radius: 6px;
+        white-space: normal;
+        max-width: 300px;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.2s ease;
+        z-index: 1000;
+        margin-bottom: 8px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+    }
+    .mtooltip:hover::after {
+        opacity: 1;
+        visibility: visible;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    edit_row = st.session_state.get('edit_row', None)
+    
+    st.markdown("""
+    <style>
+    .mt-table {
+        width: 100%;
+        border-collapse: collapse;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .mt-table th {
+        background: linear-gradient(135deg, #1E293B 0%, #334155 100%);
+        color: white;
+        font-weight: 600;
+        padding: 14px 12px;
+        font-size: 14px;
+        white-space: nowrap;
+        border-right: 1px solid rgba(255,255,255,0.1);
+        text-align: center;
+    }
+    .mt-table th:last-child {
+        border-right: none;
+    }
+    .mt-table td {
+        padding: 14px 12px;
+        font-size: 14px;
+        white-space: nowrap;
+        border-bottom: 1px solid #E2E8F0;
+    }
+    .mt-table tr:hover {
+        background-color: #F1F5F9;
+    }
+    .mt-table tr:nth-child(even) {
+        background-color: #F8FAFC;
+    }
+    .mt-seq {
+        color: #94A3B8;
+        font-weight: 500;
+        text-align: center;
+    }
+    .mt-tag {
+        display: inline-block;
+        padding: 5px 14px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 500;
+    }
+    .mt-status-pending {
+        background: linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%);
+        color: #6B7280;
+    }
+    .mt-status-inprogress {
+        background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%);
+        color: #2563EB;
+    }
+    .mt-status-completed {
+        background: linear-gradient(135deg, #D1FAE5 0%, #A7F3D0 100%);
+        color: #059669;
+    }
+    .mt-category-sterile {
+        background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);
+        color: #2563EB;
+    }
+    .mt-category-hotfill {
+        background: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%);
+        color: #D97706;
+    }
+    .mt-category-carbonate {
+        background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
+        color: #059669;
+    }
+    .mt-duration {
+        font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+        font-size: 13px;
+        color: #475569;
+    }
+    .mt-product {
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        display: inline-block;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    html_table = '<table class="mt-table">'
+    html_table += '<thead><tr>'
+    html_table += '<th style="width:50px">序号</th>'
+    html_table += '<th style="width:80px">工厂</th>'
+    html_table += '<th style="width:180px">生产线名称</th>'
+    html_table += '<th style="width:80px">线别代码</th>'
+    html_table += '<th style="width:250px">工期</th>'
+    html_table += '<th style="width:80px">状态</th>'
+    html_table += '<th style="width:60px">类别</th>'
+    html_table += '<th style="width:80px">责任人</th>'
+    html_table += '<th>可生产品项</th>'
+    html_table += '</tr></thead><tbody>'
+    
+    for row_idx, (idx, row) in enumerate(filtered_df.iterrows(), 1):
+        status_class = 'mt-status-pending' if row['任务完成度'] == '未开始' else ('mt-status-inprogress' if row['任务完成度'] == '进行中' else 'mt-status-completed')
+        category_class = 'mt-category-sterile' if row['生产线类别'] == '无菌' else ('mt-category-hotfill' if row['生产线类别'] == '热充' else 'mt-category-carbonate')
+        
+        start_date = row['开始时间'].strftime('%Y-%m-%d')
+        end_date = row['结束日期'].strftime('%Y-%m-%d')
+        duration = f'({row["大修天数"]}天)'
+        
+        html_table += '<tr>'
+        html_table += f'<td class="mt-seq">{row_idx}</td>'
+        html_table += f'<td>{row["工厂"]}</td>'
+        html_table += f'<td>{row["生产线名称"]}</td>'
+        html_table += f'<td>{row["线别代码"]}</td>'
+        html_table += f'<td class="mt-duration">{start_date} → {end_date} {duration}</td>'
+        html_table += f'<td style="text-align:center;"><span class="mt-tag {status_class}">{row["任务完成度"]}</span></td>'
+        html_table += f'<td style="text-align:center;"><span class="mt-tag {category_class}">{row["生产线类别"]}</span></td>'
+        html_table += f'<td>{row["产线责任人"]}</td>'
+        html_table += f'<td><span class="mt-product" title="{row["产线可生产品项"]}">{row["产线可生产品项"]}</span></td>'
+        html_table += '</tr>'
+    
+    html_table += '</tbody></table>'
+    st.markdown(html_table, unsafe_allow_html=True)
+    
+    output = io.BytesIO()
+    filtered_df.to_excel(output, index=False)
+    output.seek(0)
+    
+    st.download_button(
+        label='导出Excel',
+        data=output,
+        file_name='大修进度数据.xlsx',
+        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        use_container_width=True
+    )
