@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import os
 
 st.set_page_config(layout="wide", page_title="产销协调")
 
@@ -4371,7 +4372,7 @@ if st.session_state.show_flavor_analysis:
             st.markdown(modal_html, unsafe_allow_html=True)
 
 elif st.session_state.current_page == '调出分析':
-    html_file_path = r'c:\Users\50400325\Desktop\预算执行分析-天津调出-单文件版.html'
+    html_file_path = os.path.join(os.path.dirname(__file__), '预算执行分析-天津调出-单文件版.html')
     try:
         with open(html_file_path, 'r', encoding='utf-8') as f:
             html_content = f.read()
