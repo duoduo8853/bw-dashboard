@@ -4580,6 +4580,9 @@ elif st.session_state.current_page == '大修进度':
     display_df['显示名称'] = display_df['工厂'] + '-' + display_df['线别代码']
     display_df = display_df.sort_values(['工厂排序', '生产线名称'])
     
+    display_df['开始时间_str'] = display_df['开始时间'].dt.strftime('%Y-%m-%d')
+    display_df['结束日期_str'] = display_df['结束日期'].dt.strftime('%Y-%m-%d')
+    
     fig_gantt = px.timeline(
         display_df,
         x_start="开始时间",
@@ -4591,13 +4594,13 @@ elif st.session_state.current_page == '大修进度':
         hover_name="生产线名称",
         hover_data={
             '生产线名称': False,
-            '工厂': True,
-            '线别代码': True,
-            '产线责任人': True,
-            '任务完成度': True,
-            '产线可生产品项': True,
-            '开始时间': ':date',
-            '结束日期': ':date'
+            '工厂': False,
+            '线别代码': False,
+            '产线责任人': False,
+            '任务完成度': False,
+            '产线可生产品项': False,
+            '开始时间_str': False,
+            '结束日期_str': False
         },
         title='大修进度甘特图'
     )
@@ -4618,9 +4621,12 @@ elif st.session_state.current_page == '大修进度':
             )
         ))
     
+    row_height = 36
+    total_height = max(len(display_df) * row_height + 120, 500)
+    
     fig_gantt.update_layout(
         legend=dict(
-            title='工厂',
+            title=dict(text='工厂', font=dict(size=14, color='#64748b')),
             orientation='h',
             yanchor='bottom',
             y=1.02,
@@ -4629,18 +4635,28 @@ elif st.session_state.current_page == '大修进度':
             visible=True
         ),
         title_font=dict(size=16, color='#1e293b'),
-        xaxis_title='时间',
-        yaxis_title='工厂-线别代码-线别名称',
+        xaxis_title=dict(text='时间', font=dict(size=13, color='#64748b')),
+        yaxis_title=dict(text='工厂-线别代码', font=dict(size=13, color='#64748b')),
         xaxis=dict(
             tickformat='%Y-%m-%d',
             range=[pd.Timestamp('2026-08-01'), pd.Timestamp('2027-02-28')],
-            gridcolor='rgba(0,0,0,0)'
+            gridcolor='rgba(0,0,0,0)',
+            tickfont=dict(size=11, color='#64748b'),
+            showgrid=True,
+            gridwidth=1,
+            showline=False,
+            zeroline=False
         ),
         yaxis=dict(
             autorange='reversed',
-            gridcolor='#e2e8f0'
+            gridcolor='#f1f5f9',
+            gridwidth=1,
+            tickfont=dict(size=12, color='#334155', family='SF Mono, Monaco, Consolas, monospace'),
+            showline=False,
+            zeroline=False,
+            showgrid=True
         ),
-        height=600,
+        height=total_height,
         plot_bgcolor='#ffffff',
         paper_bgcolor='#f8fafc',
         shapes=month_lines + [
@@ -4668,18 +4684,28 @@ elif st.session_state.current_page == '大修进度':
                 showarrow=False,
                 font=dict(size=12, color='#EF4444')
             )
-        ]
+        ],
+        margin=dict(l=140, r=40, t=80, b=50)
     )
     
     fig_gantt.update_traces(
         marker=dict(
-            line=dict(width=1, color='#ffffff')
+            line=dict(width=0.5, color='#ffffff'),
+            opacity=0.95
         ),
-        opacity=0.9,
         textposition='inside',
-        textfont=dict(size=11, color='white'),
+        textfont=dict(size=12, color='white', family='SF Pro Text, Helvetica, Arial, sans-serif'),
         insidetextanchor='middle',
-        showlegend=True
+        showlegend=True,
+        customdata=display_df[['工厂', '线别代码', '产线责任人', '任务完成度', '产线可生产品项', '开始时间_str', '结束日期_str']].values,
+        hovertemplate='<b>%{text}</b><br>' +
+                     '工厂: %{customdata[0]}<br>' +
+                     '线别代码: %{customdata[1]}<br>' +
+                     '责任人: %{customdata[2]}<br>' +
+                     '状态: %{customdata[3]}<br>' +
+                     '可生产品项: %{customdata[4]}<br>' +
+                     '开始: %{customdata[5]}<br>' +
+                     '结束: %{customdata[6]}<extra></extra>'
     )
     
     st.plotly_chart(fig_gantt, use_container_width=True, config={'scrollZoom': True})
