@@ -4794,6 +4794,10 @@ elif st.session_state.current_page == '大修进度':
     """, height=0)
     
     filtered_df = working_df.copy()
+    factory_order = {'TTJ1': 0, 'TYP1': 1, 'TTJ2': 2, 'TJPI': 3, 'JJY1': 4, 'TJY1': 5}
+    filtered_df['工厂排序'] = filtered_df['工厂'].map(factory_order)
+    filtered_df = filtered_df.sort_values(['工厂排序', '生产线名称'])
+    filtered_df = filtered_df.drop(columns=['工厂排序'])
     
     st.markdown('<div class="card-title">大修明细表格</div>', unsafe_allow_html=True)
     
