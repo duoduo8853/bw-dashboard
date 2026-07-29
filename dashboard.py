@@ -4513,34 +4513,6 @@ elif st.session_state.current_page == '大修进度':
                 pass
         return df.copy()
     
-    def on_edit_change():
-        edited = st.session_state.get("maintenance_editor")
-        if edited is None:
-            return
-        try:
-            if not isinstance(edited, pd.DataFrame) or edited.empty:
-                return
-        except Exception:
-            pass
-        
-        try:
-            edited_copy = edited.copy()
-            edited_copy['开始时间'] = pd.to_datetime(edited_copy['开始时间'])
-            edited_copy['结束日期'] = pd.to_datetime(edited_copy['结束日期'])
-            edited_copy['大修天数'] = (edited_copy['结束日期'] - edited_copy['开始时间']).dt.days + 1
-            
-            current = st.session_state.edited_maintenance_df
-            cols_to_update = ['生产线名称', '开始时间', '结束日期', '任务完成度', '大修天数']
-            
-            updated = current.copy()
-            for col in cols_to_update:
-                if col in edited_copy.columns and col in updated.columns:
-                    updated[col] = edited_copy[col].values
-            st.session_state.edited_maintenance_df = updated
-            save_data(updated)
-        except Exception:
-            pass
-    
     if 'edited_maintenance_df' not in st.session_state:
         st.session_state.edited_maintenance_df = load_data()
     
@@ -5259,6 +5231,35 @@ elif st.session_state.current_page == '大修进度':
             },
             hide_index=True,
             num_rows="fixed",
-            key="maintenance_editor",
-            on_change=on_edit_change
+            key="maintenance_editor"
         )
+        
+        col1, col2, col3 = st.columns([2, 1, 1])
+        with col1:
+            if st.button("💾 保存修改", type="primary", use_container_width=True):
+                try:
+                    edited_copy = edited_df.copy()
+                    edited_copy['开始时间'] = pd.to_datetime(edited_copy['开始时间'])
+                    edited_copy['结束日期'] = pd.to_datetime(edited_copy['结束日期'])
+                    edited_copy['大修天数'] = (edited_copy['结束日期'] - edited_copy['开始时间']).dt.days + 1
+                    
+                    current = st.session_state.edited_maintenance_df
+                    cols_to_update = ['生产线名称', '开始时间', '结束日期', '任务完成度', '大修天数']
+                    
+                    updated = current.copy()
+                    for col in cols_to_update:
+                        if col in edited_copy.columns and col in updated.columns:
+                            updated[col] = edited_copy[col].values
+                    st.session_state.edited_maintenance_df = updated
+                    save_data(updated)
+                    st.success("✅ 保存成功！甘特图和表格已同步更新")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"保存失败: {e}")
+        
+        with col3:
+            if st.button("🔄 重置数据", use_container_width=True):
+                if os.path.exists(DATA_FILE):
+                    os.remove(DATA_FILE)
+                st.session_state.edited_maintenance_df = df.copy()
+                st.rerun()
