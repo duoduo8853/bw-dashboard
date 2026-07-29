@@ -4491,31 +4491,58 @@ elif st.session_state.current_page == '大修进度':
     df['结束日期'] = pd.to_datetime(df['结束日期'], format='%Y/%m/%d')
     df['大修天数'] = (df['结束日期'] - df['开始时间']).dt.days + 1
     
+    import os
+    DATA_FILE = "maintenance_data.json"
+    
+    def save_data(dataframe):
+        save_df = dataframe.copy()
+        save_df['开始时间'] = save_df['开始时间'].dt.strftime('%Y-%m-%d')
+        save_df['结束日期'] = save_df['结束日期'].dt.strftime('%Y-%m-%d')
+        save_df.to_json(DATA_FILE, orient='records', force_ascii=False)
+    
+    def load_data():
+        if os.path.exists(DATA_FILE):
+            try:
+                loaded = pd.read_json(DATA_FILE, orient='records')
+                if not loaded.empty:
+                    loaded['开始时间'] = pd.to_datetime(loaded['开始时间'])
+                    loaded['结束日期'] = pd.to_datetime(loaded['结束日期'])
+                    loaded['大修天数'] = (loaded['结束日期'] - loaded['开始时间']).dt.days + 1
+                    return loaded
+            except Exception:
+                pass
+        return df.copy()
+    
     def on_edit_change():
         edited = st.session_state.get("maintenance_editor")
-        if edited is not None and not edited.empty:
-            edited['开始时间'] = pd.to_datetime(edited['开始时间'])
-            edited['结束日期'] = pd.to_datetime(edited['结束日期'])
-            edited['大修天数'] = (edited['结束日期'] - edited['开始时间']).dt.days + 1
+        if edited is None:
+            return
+        try:
+            if not isinstance(edited, pd.DataFrame) or edited.empty:
+                return
+        except Exception:
+            pass
+        
+        try:
+            edited_copy = edited.copy()
+            edited_copy['开始时间'] = pd.to_datetime(edited_copy['开始时间'])
+            edited_copy['结束日期'] = pd.to_datetime(edited_copy['结束日期'])
+            edited_copy['大修天数'] = (edited_copy['结束日期'] - edited_copy['开始时间']).dt.days + 1
             
             current = st.session_state.edited_maintenance_df
             cols_to_update = ['生产线名称', '开始时间', '结束日期', '任务完成度', '大修天数']
-            changed = False
-            for col in cols_to_update:
-                if col in edited.columns and col in current.columns:
-                    if not edited[col].equals(current[col].reset_index(drop=True)):
-                        changed = True
-                        break
             
-            if changed:
-                updated = current.copy()
-                for col in cols_to_update:
-                    if col in edited.columns and col in updated.columns:
-                        updated[col] = edited[col].values
-                st.session_state.edited_maintenance_df = updated
+            updated = current.copy()
+            for col in cols_to_update:
+                if col in edited_copy.columns and col in updated.columns:
+                    updated[col] = edited_copy[col].values
+            st.session_state.edited_maintenance_df = updated
+            save_data(updated)
+        except Exception:
+            pass
     
     if 'edited_maintenance_df' not in st.session_state:
-        st.session_state.edited_maintenance_df = df.copy()
+        st.session_state.edited_maintenance_df = load_data()
     
     working_df = st.session_state.edited_maintenance_df.copy()
     
