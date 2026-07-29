@@ -4490,7 +4490,16 @@ elif st.session_state.current_page == '大修进度':
     df['开始时间'] = pd.to_datetime(df['开始时间'], format='%Y/%m/%d')
     df['结束日期'] = pd.to_datetime(df['结束日期'], format='%Y/%m/%d')
     df['大修天数'] = (df['结束日期'] - df['开始时间']).dt.days + 1
-    st.session_state.maintenance_df = df
+    
+    if 'edited_maintenance_df' not in st.session_state:
+        st.session_state.edited_maintenance_df = df.copy()
+    else:
+        edited_df_state = st.session_state.edited_maintenance_df
+        edited_df_state['开始时间'] = pd.to_datetime(edited_df_state['开始时间'])
+        edited_df_state['结束日期'] = pd.to_datetime(edited_df_state['结束日期'])
+        edited_df_state['大修天数'] = (edited_df_state['结束日期'] - edited_df_state['开始时间']).dt.days + 1
+    
+    working_df = st.session_state.edited_maintenance_df.copy()
     
     total_lines = len(df)
     factory_count = df['工厂'].nunique()
@@ -4574,9 +4583,47 @@ elif st.session_state.current_page == '大修进度':
     
     st.markdown(stats_html, unsafe_allow_html=True)
     
-    display_df = df.copy()
+    st.markdown('<div class="card-title">✏️ 数据编辑（修改后甘特图和表格同步更新）</div>', unsafe_allow_html=True)
+    
+    edit_df = working_df[['工厂', '生产线名称', '线别代码', '开始时间', '结束日期', '任务完成度', '生产线类别', '产线责任人', '产线可生产品项', '大修天数']].copy()
+    edit_df['开始时间'] = edit_df['开始时间'].dt.date
+    edit_df['结束日期'] = edit_df['结束日期'].dt.date
+    
+    edited_df = st.data_editor(
+        edit_df,
+        column_config={
+            "工厂": st.column_config.TextColumn("工厂", disabled=True),
+            "生产线名称": st.column_config.TextColumn("生产线名称"),
+            "线别代码": st.column_config.TextColumn("线别代码", disabled=True),
+            "开始时间": st.column_config.DateColumn("开始时间", min_value=pd.Timestamp('2026-01-01'), max_value=pd.Timestamp('2027-12-31')),
+            "结束日期": st.column_config.DateColumn("结束日期", min_value=pd.Timestamp('2026-01-01'), max_value=pd.Timestamp('2027-12-31')),
+            "任务完成度": st.column_config.SelectboxColumn("状态", options=["未开始", "进行中", "已完成"]),
+            "生产线类别": st.column_config.TextColumn("类别", disabled=True),
+            "产线责任人": st.column_config.TextColumn("责任人", disabled=True),
+            "产线可生产品项": st.column_config.TextColumn("可生产品项", disabled=True, width="large"),
+            "大修天数": st.column_config.NumberColumn("大修天数", disabled=True),
+        },
+        hide_index=True,
+        num_rows="fixed",
+        key="maintenance_editor"
+    )
+    
+    if edited_df is not None:
+        edited_df['开始时间'] = pd.to_datetime(edited_df['开始时间'])
+        edited_df['结束日期'] = pd.to_datetime(edited_df['结束日期'])
+        edited_df['大修天数'] = (edited_df['结束日期'] - edited_df['开始时间']).dt.days + 1
+        
+        if not edited_df.equals(working_df[['工厂', '生产线名称', '线别代码', '开始时间', '结束日期', '任务完成度', '生产线类别', '产线责任人', '产线可生产品项', '大修天数']].reset_index(drop=True)):
+            updated_df = df.copy()
+            for col in ['生产线名称', '开始时间', '结束日期', '任务完成度', '大修天数']:
+                if col in edited_df.columns and col in updated_df.columns:
+                    updated_df[col] = edited_df[col].values
+            st.session_state.edited_maintenance_df = updated_df
+            working_df = updated_df.copy()
+    
+    display_df = working_df.copy()
     factory_order = {'TTJ1': 0, 'TYP1': 1, 'TTJ2': 2, 'TJPI': 3, 'JJY1': 4, 'TJY1': 5}
-    display_df['工厂排序'] = df['工厂'].map(factory_order)
+    display_df['工厂排序'] = working_df['工厂'].map(factory_order)
     display_df['显示名称'] = display_df['工厂'] + '-' + display_df['线别代码']
     display_df = display_df.sort_values(['工厂排序', '生产线名称'])
     
@@ -4769,7 +4816,7 @@ elif st.session_state.current_page == '大修进度':
     </script>
     """, height=0)
     
-    filtered_df = display_df.copy()
+    filtered_df = working_df.copy()
     
     st.markdown('<div class="card-title">大修明细表格</div>', unsafe_allow_html=True)
     
@@ -5169,41 +5216,8 @@ elif st.session_state.current_page == '大修进度':
     html_table += '</tbody></table>'
     st.markdown(html_table, unsafe_allow_html=True)
     
-    edit_df = filtered_df[['工厂', '生产线名称', '线别代码', '开始时间', '结束日期', '任务完成度', '生产线类别', '产线责任人', '产线可生产品项', '大修天数']].copy()
-    edit_df['开始时间'] = edit_df['开始时间'].dt.date
-    edit_df['结束日期'] = edit_df['结束日期'].dt.date
-    
-    with st.expander("✏️ 编辑数据（生产线名称、工期、状态等）", expanded=False):
-        edited_df = st.data_editor(
-            edit_df,
-            column_config={
-                "工厂": st.column_config.TextColumn("工厂", disabled=True),
-                "生产线名称": st.column_config.TextColumn("生产线名称"),
-                "线别代码": st.column_config.TextColumn("线别代码", disabled=True),
-                "开始时间": st.column_config.DateColumn("开始时间", min_value=pd.Timestamp('2026-01-01'), max_value=pd.Timestamp('2027-12-31')),
-                "结束日期": st.column_config.DateColumn("结束日期", min_value=pd.Timestamp('2026-01-01'), max_value=pd.Timestamp('2027-12-31')),
-                "任务完成度": st.column_config.SelectboxColumn("状态", options=["未开始", "进行中", "已完成"]),
-                "生产线类别": st.column_config.TextColumn("类别", disabled=True),
-                "产线责任人": st.column_config.TextColumn("责任人", disabled=True),
-                "产线可生产品项": st.column_config.TextColumn("可生产品项", disabled=True, width="large"),
-                "大修天数": st.column_config.NumberColumn("大修天数", disabled=True),
-            },
-            hide_index=True,
-            num_rows="fixed",
-            key="maintenance_editor"
-        )
-        
-        if edited_df is not None:
-            edited_df['开始时间'] = pd.to_datetime(edited_df['开始时间'])
-            edited_df['结束日期'] = pd.to_datetime(edited_df['结束日期'])
-            edited_df['大修天数'] = (edited_df['结束日期'] - edited_df['开始时间']).dt.days + 1
-        else:
-            edited_df = edit_df.copy()
-            edited_df['开始时间'] = pd.to_datetime(edited_df['开始时间'])
-            edited_df['结束日期'] = pd.to_datetime(edited_df['结束日期'])
-    
     output = io.BytesIO()
-    edited_df_export = edited_df.copy()
+    edited_df_export = working_df.copy()
     edited_df_export['开始时间'] = edited_df_export['开始时间'].dt.strftime('%Y-%m-%d')
     edited_df_export['结束日期'] = edited_df_export['结束日期'].dt.strftime('%Y-%m-%d')
     edited_df_export.to_excel(output, index=False)
