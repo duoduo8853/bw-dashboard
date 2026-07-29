@@ -2803,32 +2803,35 @@ elif st.session_state.current_page == '历史销量':
             
             capacity_budget_df = pd.merge(capacity_actual, capacity_budget, on='容量', suffixes=('_actual', '_budget'))
             capacity_budget_df = capacity_budget_df[capacity_budget_df['容量'].notna() & (capacity_budget_df['容量'] != '')]
-            capacity_budget_df['达成率'] = (capacity_budget_df[f'{sales_col}_actual'] / capacity_budget_df[f'{budget_col}_budget'] * 100).fillna(0)
-            capacity_budget_df['达成率差值'] = capacity_budget_df['达成率'] - 100
-            capacity_budget_df = capacity_budget_df[~capacity_budget_df['达成率差值'].isin([float('inf'), float('-inf')])]
+            
+            actual_col = f'{sales_col}_actual' if f'{sales_col}_actual' in capacity_budget_df.columns else sales_col
+            budget_col_merged = f'{budget_col}_budget' if f'{budget_col}_budget' in capacity_budget_df.columns else budget_col
+            
+            capacity_budget_df['达成率'] = (capacity_budget_df[actual_col] / capacity_budget_df[budget_col_merged] * 100).fillna(0)
+            capacity_budget_df = capacity_budget_df[~capacity_budget_df['达成率'].isin([float('inf'), float('-inf')])]
             capacity_budget_df = capacity_budget_df.sort_values('达成率', ascending=False)
             
             fig_capacity_budget = go.Figure()
             
-            colors = ['#059669' if x >= 0 else '#dc2626' for x in capacity_budget_df['达成率差值']]
+            colors = ['#059669' if x >= 100 else '#3B82F6' if x >= 80 else '#dc2626' for x in capacity_budget_df['达成率']]
             
             fig_capacity_budget.add_trace(go.Bar(
                 y=capacity_budget_df['容量'],
-                x=capacity_budget_df['达成率差值'],
+                x=capacity_budget_df['达成率'],
                 orientation='h',
                 marker_color=colors,
                 marker_cornerradius=4,
-                text=capacity_budget_df['达成率差值'].apply(lambda x: f'+{x:.2f}%' if x >= 0 else f'{x:.2f}%'),
-                textposition='inside',
+                text=capacity_budget_df['达成率'].apply(lambda x: f'{x:.1f}%'),
+                textposition='outside',
                 insidetextanchor='middle',
-                textfont=dict(size=11, weight='bold', color='#ffffff'),
-                hovertemplate='销量: %{customdata:.2f}<extra></extra>',
-                customdata=capacity_budget_df[f'{sales_col}_actual'],
+                textfont=dict(size=12, weight='bold', color='#334155'),
+                hovertemplate='达成率: %{x:.1f}%<br>实际销量: %{customdata:.2f}<br>预算销量: %{customdata2:.2f}<extra></extra>',
+                customdata=capacity_budget_df[[actual_col, budget_col_merged]].values.tolist(),
                 hoverlabel=dict(font=dict(size=14, weight='bold'))
             ))
             
-            max_abs_value = abs(capacity_budget_df['达成率差值']).max() if len(capacity_budget_df) > 0 else 10
-            x_range = min(max_abs_value * 1.3, 100)
+            max_value = capacity_budget_df['达成率'].max() if len(capacity_budget_df) > 0 else 100
+            x_range = max(max_value * 1.2, 100)
             
             fig_capacity_budget.update_layout(
                 plot_bgcolor='rgba(248,250,252,1)',
@@ -2841,17 +2844,15 @@ elif st.session_state.current_page == '历史销量':
                     categoryarray=capacity_budget_df['容量'].astype(str).tolist()[::-1]
                 ),
                 xaxis=dict(
-                    title=dict(text='达成率差值 (%)', font=dict(size=11, color='#6B7280')),
+                    title=dict(text='预算达成率 (%)', font=dict(size=11, color='#6B7280')),
                     showgrid=True,
                     gridcolor='#E5E7EB',
                     gridwidth=1,
                     showline=False,
-                    zeroline=True,
-                    zerolinecolor='#DC2626',
-                    zerolinewidth=2,
+                    zeroline=False,
                     showticklabels=True,
                     tickfont=dict(size=11, color='#6B7280'),
-                    range=[-x_range, x_range]
+                    range=[0, x_range]
                 ),
                 margin=dict(l=60, r=60, t=20, b=20),
                 height=300,
