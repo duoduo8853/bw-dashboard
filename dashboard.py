@@ -4714,25 +4714,23 @@ elif st.session_state.current_page == '大修进度':
         margin=dict(l=140, r=40, t=80, b=50)
     )
     
-    fig_gantt.update_traces(
-        marker=dict(
-            line=dict(width=0.5, color='#ffffff'),
-            opacity=0.95
-        ),
-        textposition='inside',
-        textfont=dict(size=12, color='white', family='SF Pro Text, Helvetica, Arial, sans-serif'),
-        insidetextanchor='middle',
-        showlegend=True,
-        customdata=display_df[['工厂', '线别代码', '产线责任人', '任务完成度', '产线可生产品项', '开始时间_str', '结束日期_str']].values,
-        hovertemplate='<b>%{text}</b><br>' +
-                     '工厂: %{customdata[0]}<br>' +
-                     '线别代码: %{customdata[1]}<br>' +
-                     '责任人: %{customdata[2]}<br>' +
-                     '状态: %{customdata[3]}<br>' +
-                     '可生产品项: %{customdata[4]}<br>' +
-                     '开始: %{customdata[5]}<br>' +
-                     '结束: %{customdata[6]}<extra></extra>'
-    )
+    for i, trace in enumerate(fig_gantt.data):
+        factory_name = trace.name
+        factory_data = display_df[display_df['工厂'] == factory_name]
+        trace.customdata = factory_data[['工厂', '线别代码', '产线责任人', '任务完成度', '产线可生产品项', '开始时间_str', '结束日期_str']].values
+        trace.hovertemplate = ('<b>%{text}</b><br>' +
+                              '工厂: %{customdata[0]}<br>' +
+                              '线别代码: %{customdata[1]}<br>' +
+                              '责任人: %{customdata[2]}<br>' +
+                              '状态: %{customdata[3]}<br>' +
+                              '可生产品项: %{customdata[4]}<br>' +
+                              '开始: %{customdata[5]}<br>' +
+                              '结束: %{customdata[6]}<extra></extra>')
+        trace.marker = dict(line=dict(width=0.5, color='#ffffff'), opacity=0.95)
+        trace.textposition = 'inside'
+        trace.textfont = dict(size=12, color='white', family='SF Pro Text, Helvetica, Arial, sans-serif')
+        trace.insidetextanchor = 'middle'
+        trace.showlegend = True
     
     st.plotly_chart(fig_gantt, use_container_width=True, config={'scrollZoom': True})
     
