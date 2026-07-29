@@ -57,8 +57,14 @@ st.markdown("""
 </script>
 """, unsafe_allow_html=True)
 
-@st.cache_data(ttl=3600, show_spinner=False)
-def cached_load_history_data(file_path):
+def get_file_modified_time(file_path):
+    try:
+        return os.path.getmtime(file_path)
+    except:
+        return 0
+
+@st.cache_data(ttl=0, show_spinner=False)
+def cached_load_history_data(file_path, file_mod_time):
     xls = pd.ExcelFile(file_path)
     available_sheets = xls.sheet_names
     
@@ -260,8 +266,8 @@ def restore_page_state(page_name):
             for key, value in saved_state.items():
                 st.session_state[key] = value
 
-@st.cache_data(ttl=3600)
-def load_data():
+@st.cache_data(ttl=0)
+def load_data(file_mod_time):
     try:
         df_tj = pd.read_excel('BW数据.xlsx', sheet_name='出货-天津-部别')
         df_hb = pd.read_excel('BW数据.xlsx', sheet_name='出货-河北-部别')
@@ -283,7 +289,7 @@ def get_file_mod_time(filepath):
     except:
         return 0
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=0)
 def load_mappings(file_mod_time_bw=0, file_mod_time_rel=0):
     try:
         xls = pd.ExcelFile('BW数据.xlsx')
@@ -529,8 +535,8 @@ REGION_DEPT_MAP = {
     '河北行销区域': ['河北地区部', '冀东营业部', '冀西营业部', '冀南营业部', '冀北营业部', '石家庄营业部', '唐山营业部', '石家庄餐饮处', '河北行销公司特营处']
 }
 
-df = load_data()
 bw_mod_time = get_file_mod_time('BW数据.xlsx')
+df = load_data(bw_mod_time)
 rel_mod_time = get_file_mod_time('对应关系.xlsx')
 project_map, product30_map, product20_map, material_map = load_mappings(bw_mod_time, rel_mod_time)
 
@@ -666,6 +672,21 @@ with st.sidebar:
         st.markdown('<style>[data-testid="stSidebar"] [data-testid="baseButton-secondary-btn_maintenance"] { background-color: #eff6ff !important; color: #1e40af !important; font-weight: 600; }</style>', unsafe_allow_html=True)
     if st.button('大修进度', key='btn_maintenance', use_container_width=True):
         st.session_state.current_page = '大修进度'
+    
+    st.markdown('<div class="menu-divider"></div>', unsafe_allow_html=True)
+    
+    st.markdown('<div class="menu-section-label">数据管理</div>', unsafe_allow_html=True)
+    
+    bw_file = 'BW数据.xlsx'
+    if os.path.exists(bw_file):
+        mod_time = os.path.getmtime(bw_file)
+        mod_time_str = pd.Timestamp(mod_time, unit='s').strftime('%Y-%m-%d %H:%M')
+        st.caption(f"📊 数据更新时间: {mod_time_str}")
+    
+    if st.button('🔄 刷新数据', use_container_width=True, key='btn_refresh'):
+        st.cache_data.clear()
+        st.success("✅ 数据已刷新！")
+        st.rerun()
     
     st.markdown('<div class="menu-divider"></div>', unsafe_allow_html=True)
     
@@ -2238,7 +2259,8 @@ elif st.session_state.current_page == '历史销量':
     if df_2026_actual.empty and df_2025_actual.empty and df_2026_budget.empty:
         import os
         if os.path.exists('2026销量.xlsx'):
-            df_2026_actual, df_2025_actual, df_2026_budget, material_flavor_map = cached_load_history_data('2026销量.xlsx')
+            file_mod_time = get_file_modified_time('2026销量.xlsx')
+            df_2026_actual, df_2025_actual, df_2026_budget, material_flavor_map = cached_load_history_data('2026销量.xlsx', file_mod_time)
             save_data(df_2026_actual, df_2025_actual, df_2026_budget, material_flavor_map)
             st.success("已从默认数据文件加载数据！")
 
@@ -2256,7 +2278,8 @@ elif st.session_state.current_page == '历史销量':
         if uploaded_file is not None and st.session_state.get('history_data_updated'):
             st.cache_data.clear()
             
-            df_2026_actual, df_2025_actual, df_2026_budget, material_flavor_map = cached_load_history_data(uploaded_file)
+            import time
+            df_2026_actual, df_2025_actual, df_2026_budget, material_flavor_map = cached_load_history_data(uploaded_file, time.time())
             save_data(df_2026_actual, df_2025_actual, df_2026_budget, material_flavor_map)
             
             if 'history_upload_counter' not in st.session_state:
