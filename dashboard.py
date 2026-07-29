@@ -2803,7 +2803,7 @@ elif st.session_state.current_page == '历史销量':
             
             capacity_budget_df = pd.merge(capacity_actual, capacity_budget, on='容量', suffixes=('_actual', '_budget'))
             capacity_budget_df = capacity_budget_df[capacity_budget_df['容量'].notna() & (capacity_budget_df['容量'] != '')]
-            capacity_budget_df['达成率'] = (capacity_budget_df.iloc[:, 1] / capacity_budget_df.iloc[:, 2] * 100).fillna(0)
+            capacity_budget_df['达成率'] = (capacity_budget_df[f'{sales_col}_actual'] / capacity_budget_df[f'{budget_col}_budget'] * 100).fillna(0)
             capacity_budget_df['达成率差值'] = capacity_budget_df['达成率'] - 100
             capacity_budget_df = capacity_budget_df[~capacity_budget_df['达成率差值'].isin([float('inf'), float('-inf')])]
             capacity_budget_df = capacity_budget_df.sort_values('达成率', ascending=False)
@@ -4474,15 +4474,15 @@ elif st.session_state.current_page == '大修进度':
     import io
     
     maintenance_data = {
-        '工厂': ['TTJ2', 'TTJ1', 'TTJ1', 'TTJ2', 'TTJ1', 'TTJ2', 'TTJ2', 'TTJ2', 'TTJ2', 'TYP1', 'TYP1', 'TYP1', 'TYP1', 'TYP1', 'TYP1'],
-        '生产线名称': ['SIDEL 无菌 2011', '乐惠-保利隆', 'TBA19 (新)', 'SIDEL 无菌 2011', 'TBA19', 'SIDEL 无菌 2011', 'SIDEL无菌大小兼用线(12)', 'SIDEL 无菌 2011', 'SIDEL 无菌 2011', 'SIDEL无菌线', 'PROCOMAC38瓶口线', '彬台TBC.08大小兼用', 'SIDEL 无菌 2010', 'SIDEL CSD 40000大小兼用', '碳酸CAN线'],
-        '线别代码': ['W101', 'W303', 'W209', 'W102', 'W208', 'W103', 'W106', 'W104', 'W105', 'W111', 'W104', 'W108', 'W110', 'W112', 'W304'],
-        '开始时间': ['2026/12/14', '2026/09/26', '2026/09/30', '2026/09/26', '2026/09/30', '2026/08/25', '2026/09/26', '2026/10/23', '2026/11/25', '2026/10/10', '2026/11/24', '2026/10/06', '2027/01/02', '2026/09/02', '2026/09/26'],
-        '结束日期': ['2027/01/27', '2026/10/18', '2026/10/15', '2026/11/09', '2026/10/15', '2026/10/08', '2026/11/09', '2026/12/06', '2027/01/08', '2026/11/24', '2027/01/09', '2026/10/21', '2027/02/16', '2026/10/08', '2026/10/18'],
-        '任务完成度': ['未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始'],
-        '生产线类别': ['无菌', '热充', '无菌', '无菌', '无菌', '无菌', '无菌', '无菌', '无菌', '无菌', '无菌', '热充', '无菌', '无菌', '碳酸'],
-        '产线责任人': ['张红远', '王壮', '王壮', '张红远', '王壮', '张红远', '张红远', '张红远', '张红远', '芮宇', '芮宇', '芮宇', '芮宇', '王壮', '王壮'],
-        '产线可生产品项': ['500ML全系列', 'CAN6联包，24入，礼盒', 'TP6联包&24入', '500ML&1L全系列', 'TP24入', '500ML&1L全系列', '380/550ML喝开水 366/666碱性水', '500ML全系列', '2L&1L全系列', '330&350ML茶饮500ML奶茶/全系列', '佳得乐，星巴克，贝纳颂', '900冰红&百果乐缤纷', '350ML茶饮500ML茶的传人/鲜绿绿茶/中式1L全系列', '百事碳酸', '百事']
+        '工厂': ['TTJ2', 'TTJ1', 'TTJ1', 'TTJ2', 'TTJ1', 'TTJ2', 'TTJ2', 'TTJ2', 'TTJ2', 'TYP1', 'TYP1', 'TYP1', 'TYP1', 'TYP1', 'TYP1', 'TJPI', 'TJPI', 'TJPI', 'TJPI', 'TJPI', 'JJY1', 'JJY1', 'JJY1', 'JJY1', 'TJY1', 'TJY1'],
+        '生产线名称': ['SIDEL 无菌 2011', '乐惠-保利隆', 'TBA19 (新)', 'SIDEL 无菌 2011', 'TBA19', 'SIDEL 无菌 2011', 'SIDEL无菌大小兼用线(12)', 'SIDEL 无菌 2011', 'SIDEL 无菌 2011', 'SIDEL无菌线', 'PROCOMAC38瓶口线', '彬台TBC.08大小兼用', 'SIDEL 无菌 2010', 'SIDEL CSD 40000大小兼用', '碳酸CAN线', 'KRONES矿泉水36000BPH充填1', 'KRONES矿泉水36000BPH充填2', 'KRONES矿泉水36000BPH充填3', 'KRONES矿泉水36000BPH充填4', 'KRONES矿泉水18000BPH充填5', 'PET线 SIDEL 36000BPH 07年', 'PET线 SIDEL 28000BPH 13年', 'CSD28000大小兼用', '罐线 中辰 24000CPH 18年', 'SIDEL44000线纯水充填', 'SIDEL44000线纯水充填'],
+        '线别代码': ['W101', 'W303', 'W209', 'W102', 'W208', 'W103', 'W106', 'W104', 'W105', 'W111', 'W104', 'W108', 'W110', 'W112', 'W304', 'W101', 'W102', 'W103', 'W104', 'W105', 'W102', 'W103', 'W104', 'W105', 'W101', 'W102'],
+        '开始时间': ['2026/12/14', '2026/09/26', '2026/09/30', '2026/09/26', '2026/09/30', '2026/08/25', '2026/09/26', '2026/10/23', '2026/11/25', '2026/10/10', '2026/11/24', '2026/10/06', '2027/01/02', '2026/09/02', '2026/09/26', '2026/12/01', '2026/12/01', '2026/11/01', '2026/10/01', '2026/11/01', '2026/11/15', '2026/12/15', '2026/10/15', '2026/09/15', '2026/10/08', '2026/12/01'],
+        '结束日期': ['2027/01/27', '2026/10/18', '2026/10/15', '2026/11/09', '2026/10/15', '2026/10/08', '2026/11/09', '2026/12/06', '2027/01/08', '2026/11/24', '2027/01/09', '2026/10/21', '2027/02/16', '2026/10/08', '2026/10/18', '2026/12/25', '2026/12/25', '2026/11/25', '2026/10/25', '2026/11/25', '2026/12/15', '2026/12/15', '2026/11/15', '2026/10/15', '2026/10/31', '2026/12/31'],
+        '任务完成度': ['未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始', '未开始'],
+        '生产线类别': ['无菌', '热充', '无菌', '无菌', '无菌', '无菌', '无菌', '无菌', '无菌', '无菌', '无菌', '热充', '无菌', '无菌', '碳酸', '水线', '水线', '水线', '水线', '水线', '水线', '水线', '碳酸', '碳酸', '水线', '水线'],
+        '产线责任人': ['张红远', '王壮', '王壮', '张红远', '王壮', '张红远', '张红远', '张红远', '张红远', '芮宇', '芮宇', '芮宇', '芮宇', '王壮', '王壮', '王亮', '王亮', '王亮', '王亮', '王亮', '王立岗', '王立岗', '王立岗', '王立岗', '杨国付', '杨国付'],
+        '产线可生产品项': ['500ML全系列', 'CAN6联包，24入，礼盒', 'TP6联包&24入', '500ML&1L全系列', 'TP24入', '500ML&1L全系列', '380/550ML喝开水 366/666碱性水', '500ML全系列', '2L&1L全系列', '330&350ML茶饮500ML奶茶/全系列', '佳得乐，星巴克，贝纳颂', '900冰红&百果乐缤纷', '350ML茶饮500ML茶的传人/鲜绿绿茶/中式1L全系列', '百事碳酸', '百事', '550康水12入/24入', '550康水12入/24入', '550康水12入/24入', '550康水12入/24入', '1.5L水', '380/550喝开水12/24入', '550/1.5L康水；350/550L纯水乐', '百事碳酸', '百事碳酸', '550康水12入/24入', '550康水12入/24入']
     }
     
     df = pd.DataFrame(maintenance_data)
@@ -4496,9 +4496,10 @@ elif st.session_state.current_page == '大修进度':
     sterile_count = len(df[df['生产线类别'] == '无菌'])
     hotfill_count = len(df[df['生产线类别'] == '热充'])
     carbonic_count = len(df[df['生产线类别'] == '碳酸'])
+    water_count = len(df[df['生产线类别'] == '水线'])
     
     stats_html = """
-    <div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; padding: 24px;'>
+    <div style='display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; padding: 24px;'>
         <div style='background: linear-gradient(135deg, #EFF6FF 0%, #FFFFFF 100%); border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);'>
             <div style='display: flex; align-items: center; gap: 12px;'>
                 <div style='width: 44px; height: 44px; background-color: #3B82F6; border-radius: 10px; display: flex; align-items: center; justify-content: center;'>
@@ -4509,8 +4510,8 @@ elif st.session_state.current_page == '大修进度':
                     </svg>
                 </div>
                 <div>
-                    <div style='font-size: 28px; font-weight: 700; color: #1e293b;'>{}</div>
-                    <div style='font-size: 14px; color: #64748b;'>总检修线数</div>
+                    <div style='font-size: 26px; font-weight: 700; color: #1e293b;'>{}</div>
+                    <div style='font-size: 13px; color: #64748b;'>总检修线数</div>
                 </div>
             </div>
         </div>
@@ -4520,13 +4521,11 @@ elif st.session_state.current_page == '大修进度':
                     <svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'>
                         <path d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/>
                         <circle cx='9' cy='7' r='4'/>
-                        <path d='M23 21v-2a4 4 0 0 0-3-3.87'/>
-                        <path d='M16 3.13a4 4 0 0 1 0 7.75'/>
                     </svg>
                 </div>
                 <div>
-                    <div style='font-size: 28px; font-weight: 700; color: #1e293b;'>{}</div>
-                    <div style='font-size: 14px; color: #64748b;'>涉及工厂数</div>
+                    <div style='font-size: 26px; font-weight: 700; color: #1e293b;'>{}</div>
+                    <div style='font-size: 13px; color: #64748b;'>涉及工厂数</div>
                 </div>
             </div>
         </div>
@@ -4535,12 +4534,11 @@ elif st.session_state.current_page == '大修进度':
                 <div style='width: 44px; height: 44px; background-color: #10B981; border-radius: 10px; display: flex; align-items: center; justify-content: center;'>
                     <svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'>
                         <polyline points='22 7 13.5 15.5 8.5 10.5 2 17'/>
-                        <line x1='16' y1='7' x2='22' y2='7'/>
                     </svg>
                 </div>
                 <div>
-                    <div style='font-size: 28px; font-weight: 700; color: #10B981;'>{}</div>
-                    <div style='font-size: 14px; color: #64748b;'>无菌线</div>
+                    <div style='font-size: 26px; font-weight: 700; color: #10B981;'>{}</div>
+                    <div style='font-size: 13px; color: #64748b;'>无菌线</div>
                 </div>
             </div>
         </div>
@@ -4548,24 +4546,37 @@ elif st.session_state.current_page == '大修进度':
             <div style='display: flex; align-items: center; gap: 12px;'>
                 <div style='width: 44px; height: 44px; background-color: #F97316; border-radius: 10px; display: flex; align-items: center; justify-content: center;'>
                     <svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'>
-                        <path d='M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707'/>
+                        <circle cx='12' cy='12' r='5'/>
                     </svg>
                 </div>
                 <div>
-                    <div style='font-size: 28px; font-weight: 700; color: #F97316;'>{}</div>
-                    <div style='font-size: 14px; color: #64748b;'>热充线</div>
+                    <div style='font-size: 26px; font-weight: 700; color: #F97316;'>{}</div>
+                    <div style='font-size: 13px; color: #64748b;'>热充线</div>
+                </div>
+            </div>
+        </div>
+        <div style='background: linear-gradient(135deg, #F0F9FF 0%, #FFFFFF 100%); border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(14, 165, 233, 0.08);'>
+            <div style='display: flex; align-items: center; gap: 12px;'>
+                <div style='width: 44px; height: 44px; background-color: #0EA5E9; border-radius: 10px; display: flex; align-items: center; justify-content: center;'>
+                    <svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'>
+                        <path d='M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z'/>
+                    </svg>
+                </div>
+                <div>
+                    <div style='font-size: 26px; font-weight: 700; color: #0EA5E9;'>{}</div>
+                    <div style='font-size: 13px; color: #64748b;'>水线</div>
                 </div>
             </div>
         </div>
     </div>
-    """.format(total_lines, factory_count, sterile_count, hotfill_count)
+    """.format(total_lines, factory_count, sterile_count, hotfill_count, water_count)
     
     st.markdown(stats_html, unsafe_allow_html=True)
     
     display_df = df.copy()
-    factory_order = {'TTJ1': 0, 'TYP1': 1, 'TTJ2': 2}
+    factory_order = {'TTJ1': 0, 'TYP1': 1, 'TTJ2': 2, 'TJPI': 3, 'JJY1': 4, 'TJY1': 5}
     display_df['工厂排序'] = df['工厂'].map(factory_order)
-    display_df['显示名称'] = display_df['工厂'] + '-' + display_df['线别代码'] + '-' + display_df['生产线名称']
+    display_df['显示名称'] = display_df['工厂'] + '-' + display_df['线别代码']
     display_df = display_df.sort_values(['工厂排序', '生产线名称'])
     
     fig_gantt = px.timeline(
@@ -4574,7 +4585,8 @@ elif st.session_state.current_page == '大修进度':
         x_end="结束日期",
         y="显示名称",
         color="工厂",
-        color_discrete_map={'TTJ1': '#3B82F6', 'TYP1': '#F59E0B', 'TTJ2': '#10B981'},
+        text="生产线名称",
+        color_discrete_map={'TTJ1': '#3B82F6', 'TYP1': '#F59E0B', 'TTJ2': '#10B981', 'TJPI': '#8B5CF6', 'JJY1': '#EC4899', 'TJY1': '#14B8A6'},
         hover_name="生产线名称",
         hover_data={
             '生产线名称': False,
@@ -4662,7 +4674,11 @@ elif st.session_state.current_page == '大修进度':
         marker=dict(
             line=dict(width=1, color='#ffffff')
         ),
-        opacity=0.9
+        opacity=0.9,
+        textposition='inside',
+        textfont=dict(size=11, color='white'),
+        insidetextanchor='middle',
+        showlegend=True
     )
     
     st.plotly_chart(fig_gantt, use_container_width=True, config={'scrollZoom': True})
@@ -4992,33 +5008,131 @@ elif st.session_state.current_page == '大修进度':
     </style>
     """, unsafe_allow_html=True)
     
-    html_table = '<table class="mt-table">'
+    factory_colors = {
+        'TTJ1': {'bg': '#EFF6FF', 'border': '#3B82F6', 'text': '#1E40AF'},
+        'TYP1': {'bg': '#FFF7ED', 'border': '#F59E0B', 'text': '#92400E'},
+        'TTJ2': {'bg': '#ECFDF5', 'border': '#10B981', 'text': '#065F46'},
+        'TJPI': {'bg': '#F5F3FF', 'border': '#8B5CF6', 'text': '#5B21B6'},
+        'JJY1': {'bg': '#FDF2F8', 'border': '#EC4899', 'text': '#BE185D'},
+        'TJY1': {'bg': '#F0FDFA', 'border': '#14B8A6', 'text': '#0F766E'}
+    }
+    
+    st.markdown("""
+    <style>
+    .mt-factory-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-size: 14px;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    }
+    .mt-factory-table thead tr {
+        background: linear-gradient(135deg, #1E293B 0%, #334155 100%);
+    }
+    .mt-factory-table th {
+        color: white;
+        font-weight: 600;
+        padding: 14px 12px;
+        text-align: center;
+        font-size: 14px;
+        white-space: nowrap;
+        border-right: 1px solid rgba(255,255,255,0.1);
+    }
+    .mt-factory-table th:last-child {
+        border-right: none;
+    }
+    .mt-factory-table tbody tr {
+        transition: all 0.2s ease;
+    }
+    .mt-factory-table tbody tr:hover {
+        filter: brightness(0.95);
+        transform: scale(1.001);
+    }
+    .mt-factory-table td {
+        padding: 12px;
+        font-size: 13px;
+        border-bottom: 1px solid #E2E8F0;
+        white-space: nowrap;
+    }
+    .mt-factory-table tr:last-child td {
+        border-bottom: none;
+    }
+    .mt-seq {
+        text-align: center;
+        color: #94A3B8;
+        font-weight: 500;
+    }
+    .mt-days {
+        text-align: center;
+        font-weight: 600;
+        font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    }
+    .mt-tag {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+    .mt-status-pending {
+        background: #F3F4F6;
+        color: #6B7280;
+    }
+    .mt-status-inprogress {
+        background: #DBEAFE;
+        color: #2563EB;
+    }
+    .mt-status-completed {
+        background: #D1FAE5;
+        color: #059669;
+    }
+    .mt-product {
+        max-width: 180px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        display: inline-block;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    html_table = '<table class="mt-factory-table">'
     html_table += '<thead><tr>'
     html_table += '<th style="width:50px">序号</th>'
-    html_table += '<th style="width:80px">工厂</th>'
-    html_table += '<th style="width:180px">生产线名称</th>'
-    html_table += '<th style="width:80px">线别代码</th>'
-    html_table += '<th style="width:250px">工期</th>'
-    html_table += '<th style="width:80px">状态</th>'
+    html_table += '<th style="width:70px">工厂</th>'
+    html_table += '<th style="width:150px">生产线名称</th>'
+    html_table += '<th style="width:70px">线别代码</th>'
+    html_table += '<th style="width:110px">开始时间</th>'
+    html_table += '<th style="width:110px">结束日期</th>'
+    html_table += '<th style="width:70px">大修天数</th>'
+    html_table += '<th style="width:70px">状态</th>'
     html_table += '<th style="width:60px">类别</th>'
-    html_table += '<th style="width:80px">责任人</th>'
+    html_table += '<th style="width:70px">责任人</th>'
     html_table += '<th>可生产品项</th>'
     html_table += '</tr></thead><tbody>'
     
     for row_idx, (idx, row) in enumerate(filtered_df.iterrows(), 1):
+        factory = row['工厂']
+        colors = factory_colors.get(factory, {'bg': '#F8FAFC', 'border': '#CBD5E1', 'text': '#475569'})
+        
         status_class = 'mt-status-pending' if row['任务完成度'] == '未开始' else ('mt-status-inprogress' if row['任务完成度'] == '进行中' else 'mt-status-completed')
-        category_class = 'mt-category-sterile' if row['生产线类别'] == '无菌' else ('mt-category-hotfill' if row['生产线类别'] == '热充' else 'mt-category-carbonate')
+        category_class = 'mt-status-pending' if row['生产线类别'] == '无菌' else ('mt-status-inprogress' if row['生产线类别'] == '热充' else 'mt-status-completed')
         
         start_date = row['开始时间'].strftime('%Y-%m-%d')
         end_date = row['结束日期'].strftime('%Y-%m-%d')
-        duration = f'({row["大修天数"]}天)'
+        days = row['大修天数']
         
-        html_table += '<tr>'
+        html_table += f'<tr style="background-color: {colors["bg"]}; border-left: 3px solid {colors["border"]};">'
         html_table += f'<td class="mt-seq">{row_idx}</td>'
-        html_table += f'<td>{row["工厂"]}</td>'
+        html_table += f'<td style="color: {colors["text"]}; font-weight: 600;">{factory}</td>'
         html_table += f'<td>{row["生产线名称"]}</td>'
         html_table += f'<td>{row["线别代码"]}</td>'
-        html_table += f'<td class="mt-duration">{start_date} → {end_date} {duration}</td>'
+        html_table += f'<td>{start_date}</td>'
+        html_table += f'<td>{end_date}</td>'
+        html_table += f'<td class="mt-days" style="color: {colors["text"]};">{days}天</td>'
         html_table += f'<td style="text-align:center;"><span class="mt-tag {status_class}">{row["任务完成度"]}</span></td>'
         html_table += f'<td style="text-align:center;"><span class="mt-tag {category_class}">{row["生产线类别"]}</span></td>'
         html_table += f'<td>{row["产线责任人"]}</td>'
@@ -5028,12 +5142,48 @@ elif st.session_state.current_page == '大修进度':
     html_table += '</tbody></table>'
     st.markdown(html_table, unsafe_allow_html=True)
     
+    edit_df = filtered_df[['工厂', '生产线名称', '线别代码', '开始时间', '结束日期', '任务完成度', '生产线类别', '产线责任人', '产线可生产品项', '大修天数']].copy()
+    edit_df['开始时间'] = edit_df['开始时间'].dt.date
+    edit_df['结束日期'] = edit_df['结束日期'].dt.date
+    
+    with st.expander("✏️ 编辑数据（生产线名称、工期、状态等）", expanded=False):
+        edited_df = st.data_editor(
+            edit_df,
+            column_config={
+                "工厂": st.column_config.TextColumn("工厂", disabled=True),
+                "生产线名称": st.column_config.TextColumn("生产线名称"),
+                "线别代码": st.column_config.TextColumn("线别代码", disabled=True),
+                "开始时间": st.column_config.DateColumn("开始时间", min_value=pd.Timestamp('2026-01-01'), max_value=pd.Timestamp('2027-12-31')),
+                "结束日期": st.column_config.DateColumn("结束日期", min_value=pd.Timestamp('2026-01-01'), max_value=pd.Timestamp('2027-12-31')),
+                "任务完成度": st.column_config.SelectboxColumn("状态", options=["未开始", "进行中", "已完成"]),
+                "生产线类别": st.column_config.TextColumn("类别", disabled=True),
+                "产线责任人": st.column_config.TextColumn("责任人", disabled=True),
+                "产线可生产品项": st.column_config.TextColumn("可生产品项", disabled=True, width="large"),
+                "大修天数": st.column_config.NumberColumn("大修天数", disabled=True),
+            },
+            hide_index=True,
+            num_rows="fixed",
+            key="maintenance_editor"
+        )
+        
+        if edited_df is not None:
+            edited_df['开始时间'] = pd.to_datetime(edited_df['开始时间'])
+            edited_df['结束日期'] = pd.to_datetime(edited_df['结束日期'])
+            edited_df['大修天数'] = (edited_df['结束日期'] - edited_df['开始时间']).dt.days + 1
+        else:
+            edited_df = edit_df.copy()
+            edited_df['开始时间'] = pd.to_datetime(edited_df['开始时间'])
+            edited_df['结束日期'] = pd.to_datetime(edited_df['结束日期'])
+    
     output = io.BytesIO()
-    filtered_df.to_excel(output, index=False)
+    edited_df_export = edited_df.copy()
+    edited_df_export['开始时间'] = edited_df_export['开始时间'].dt.strftime('%Y-%m-%d')
+    edited_df_export['结束日期'] = edited_df_export['结束日期'].dt.strftime('%Y-%m-%d')
+    edited_df_export.to_excel(output, index=False)
     output.seek(0)
     
     st.download_button(
-        label='导出Excel',
+        label='📥 导出Excel',
         data=output,
         file_name='大修进度数据.xlsx',
         mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
