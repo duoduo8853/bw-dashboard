@@ -137,6 +137,27 @@ html,body{min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI
   #main{padding:16px}
   .kpi-row{grid-template-columns:1fr 1fr}
 }
+
+/* ===== 导出 PDF（打印）样式 ===== */
+@media print{
+  @page{margin:10mm;size:A4}
+  html,body{background:#fff !important}
+  /* 强制保留图表彩色 */
+  *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important}
+  /* 隐藏交互工具条与浮层 */
+  .set-bar,#toast,.empty-state,.modal,.multi-pick-panel{display:none !important}
+  #dashboard{display:flex !important;flex-direction:column;gap:16px}
+  #main{padding:0 !important}
+  #topbar{position:static !important;box-shadow:none !important;border-bottom:1px solid #cbd5e1;margin-bottom:10px}
+  /* 图表容器展开，避免打印时被滚动裁切 */
+  .chart-wrap{overflow:visible !important;height:auto !important;max-height:none !important}
+  canvas{max-width:100% !important;height:auto !important;page-break-inside:avoid}
+  /* 卡片与 KPI 不跨页断裂 */
+  .cd,.kpi,.recs .rec,table{break-inside:avoid;page-break-inside:avoid}
+  .kpi-row{grid-template-columns:repeat(4,1fr) !important;gap:10px}
+  .row-73,.row-2{display:grid;grid-template-columns:1fr 1fr !important;gap:14px;align-items:stretch}
+  .legend{color:#334155 !important}
+}
 </style>
 </head>
 <body>
@@ -189,6 +210,7 @@ html,body{min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI
       </label>
       <label class="set-lab">天津固定成本(元)<input id="set-fixed" class="set-in" value="180000000" style="width:150px" onchange="applySettings()"></label>
       <button class="btn btn-outline btn-sm" onclick="backToEmpty()">重新上传</button>
+      <button class="btn btn-primary btn-sm" onclick="exportPDF()" title="在打印对话框中选择「另存为 PDF」">📄 导出PDF</button>
     </div>
     <div class="kpi-row" id="kpi-row"></div>
 
@@ -629,6 +651,24 @@ function showMappingGeneric(g,fn){
 
 function backToEmpty(){$('mp').style.display='none';$('dashboard').style.display='none';$('empty-state').style.display='flex';window._pending=null}
 
+/* 导出 PDF：调用浏览器原生打印，在对话框中选择「另存为 PDF」即可。
+   看板图表均为 canvas 绘制，打印可完整保留，无需任何外部库。 */
+function exportPDF(){
+  // 关闭可能展开的下拉面板，避免被打印出来
+  var p=$('set-period-panel'); if(p) p.style.display='none';
+  // 强制重绘一次图表（确保 canvas 位图最新）
+  if(typeof renderAll==='function'){ try{renderAll();}catch(e){} }
+  // 给 body 加标记，便于打印样式精确控制
+  document.body.classList.add('exporting');
+  setTimeout(function(){
+    window.print();
+    document.body.classList.remove('exporting');
+  },120);
+  // 监听打印结束（部分浏览器）
+  var onAfter=function(){document.body.classList.remove('exporting');window.removeEventListener('afterprint',onAfter);};
+  window.addEventListener('afterprint',onAfter);
+}
+
 function confirmAndRender(){
   var f=$('set-fixed');if(f){var fv=parseFloat(f.value);if(!isNaN(fv)&&fv>0)SET.fixedCost=fv;}
   var m=window._pending;if(!m){toast('无待处理数据',true);return}
@@ -750,9 +790,20 @@ function drawFactoryBullet(){
     ctx.fillStyle='#e2e8f0';roundRect(ctx,pad.l,y+(bu-bh_bg)/2,bw,bh_bg,4);ctx.fill();
     ctx.fillStyle='#f43f5e';roundRect(ctx,pad.l,y+(bu-bh_fg)/2,aw,bh_fg,2);ctx.fill();
     var rc=it.rate<0.2?'#f43f5e':it.rate<0.6?'#f59e0b':'#10b981';
-    ctx.fillStyle=rc;ctx.font='bold 11px sans-serif';ctx.textAlign='left';ctx.textBaseline='middle';
-    var lbl=fmtP(it.rate);
-    ctx.fillText(lbl,pad.l+Math.max(bw,aw)+8,y+bu/2+1);
+    var pctStr=fmtP(it.rate);
+    var gapStr='（'+fmtBox(it.gap)+'万标箱）';
+    var x0=pad.l+Math.max(bw,aw)+8;
+    ctx.font='bold 11px sans-serif';var pw=ctx.measureText(pctStr).width;
+    ctx.font='9px sans-serif';var gw=ctx.measureText(gapStr).width;
+    ctx.fillStyle=rc;ctx.textAlign='left';ctx.textBaseline='middle';ctx.font='bold 11px sans-serif';
+    ctx.fillText(pctStr,x0,y+bu/2+1);
+    if(x0+pw+5+gw+4<=W){
+      ctx.fillStyle='#64748b';ctx.textAlign='left';ctx.textBaseline='middle';ctx.font='9px sans-serif';
+      ctx.fillText(gapStr,x0+pw+5,y+bu/2+1);
+    }else{
+      ctx.fillStyle='#64748b';ctx.textAlign='right';ctx.textBaseline='middle';ctx.font='9px sans-serif';
+      ctx.fillText(gapStr,W-6,y+bu/2+14);
+    }
     areas.push({y:y,h:bu,it:it});
   });
   c.onmousemove=function(e){var rect=c.getBoundingClientRect();var my=e.clientY-rect.top;var hit=null;for(var i=0;i<areas.length;i++){var a=areas[i];if(my>=a.y&&my<=a.y+a.h){hit=a.it;break}}if(hit)showTip(e,'<b>'+hit.name+'</b>\n调出预算: '+fmtBox(hit.bud)+' 万标箱\n实际调拨: '+fmtBox(hit.act)+' 万标箱\n落差: '+fmtBox(hit.gap)+' 万标箱\n执行率: '+fmtP(hit.rate));else hideTip()};
@@ -778,38 +829,57 @@ function drawPieMatrix(){
 
 function drawPareto(){
   var c=$('c-par');if(!c)return;
-  var items=MODEL.perItem; // 升序，最大缺口在上
-  var W=c.parentElement.clientWidth,H=Math.max(c.parentElement.clientHeight,260),reqH=Math.max(H,items.length*26+60);
-  H=reqH;if(W<50)return;
+  // 按 |落差| 降序排列，X 轴为品项
+  var items=MODEL.perItem.slice().sort(function(a,b){return Math.abs(b.gap)-Math.abs(a.gap)});
+  var W=c.parentElement.clientWidth,H=Math.max(c.parentElement.clientHeight,320);if(W<50||items.length===0)return;
   var ctx=setupHiDPI(c,W,H);
-  var pad={t:24,r:54,b:28,l:96},cw=W-pad.l-pad.r,ch=H-pad.t-pad.b;
+  var pad={t:24,r:54,b:76,l:56},iw=W-pad.l-pad.r,ih=H-pad.t-pad.b;
   var totalGap=items.reduce(function(s,it){return s+Math.abs(it.gap)},0)||1;
-  var maxGap=Math.abs(items[items.length-1].gap);
-  var barH=ch/items.length*0.62, step=ch/items.length, cum=0, areas=[];
+  var maxGap=Math.max.apply(null,items.map(function(it){return Math.abs(it.gap)}))||1;
+  var n=items.length, step=iw/n, barW=step*0.55, areas=[];
+  // 左右双 Y 轴网格
+  ctx.strokeStyle='#f1f5f9';ctx.lineWidth=1;
+  for(var g=0;g<=4;g++){
+    var yv=maxGap*g/4, y=pad.t+ih-yv/maxGap*ih;
+    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();
+    ctx.fillStyle='#94a3b8';ctx.font='10px sans-serif';ctx.textAlign='right';ctx.textBaseline='middle';ctx.fillText(fmtBox(yv),pad.l-6,y);
+    ctx.fillStyle='#f59e0b';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText((g*25)+'%',W-pad.r+6,y);
+  }
+  // 柱 + 累计点
+  var cum=0, points=[];
   items.forEach(function(it,idx){
-    var y=pad.t+idx*step+(step-barH)/2;
     var v=Math.abs(it.gap);
-    var bw=cw*(v/maxGap);
     cum+=v;
     var pct=cum/totalGap;
+    var x=pad.l+idx*step+(step-barW)/2;
+    var bh=v/maxGap*ih;
+    var y=pad.t+ih-bh;
     var col=idx<2?'#f43f5e':'#93c5fd';
-    ctx.fillStyle=col;roundRect(ctx,pad.l,y,bw,barH,3);ctx.fill();
-    var lb=it.name.length>6?it.name.substring(0,5)+'…':it.name;
-    ctx.fillStyle='#475569';ctx.font='11px sans-serif';ctx.textAlign='right';ctx.textBaseline='middle';ctx.fillText(lb,pad.l-8,y+barH/2);
-    ctx.fillStyle='#94a3b8';ctx.font='10px sans-serif';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(fmtBox(v),pad.l+bw+4,y+barH/2);
+    ctx.fillStyle=col;roundRect(ctx,x,y,barW,bh,3);ctx.fill();
+    // 柱顶数值
+    ctx.fillStyle='#64748b';ctx.font='9px sans-serif';ctx.textAlign='center';ctx.textBaseline='bottom';ctx.fillText(fmtBox(v),x+barW/2,y-3);
     // 累计点
-    var px=pad.l+cw*pct;
-    ctx.fillStyle='#f59e0b';ctx.beginPath();ctx.arc(px,pad.t+idx*step+step/2,3,0,Math.PI*2);ctx.fill();
-    if(idx<2){ctx.fillStyle='#b45309';ctx.font='bold 10px sans-serif';ctx.textAlign='left';ctx.textBaseline='bottom';ctx.fillText((pct*100).toFixed(0)+'%',px+6,pad.t+idx*step+step/2-2);}
-    areas.push({y:y-4,h:step+8,it:it,pct:pct});
+    var px=x+barW/2, py=pad.t+ih-pct*ih;
+    points.push({x:px,y:py});
+    ctx.fillStyle='#f59e0b';ctx.beginPath();ctx.arc(px,py,3.5,0,Math.PI*2);ctx.fill();
+    if(idx<2){
+      ctx.fillStyle='#b45309';ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.textBaseline='bottom';ctx.fillText((pct*100).toFixed(0)+'%',px,py-6);
+    }
+    // X 轴品项标签（倾斜防重叠）
+    ctx.save();
+    ctx.translate(x+barW/2,pad.t+ih+10);
+    ctx.rotate(Math.PI/5);
+    ctx.fillStyle='#475569';ctx.font='10px sans-serif';ctx.textAlign='right';ctx.textBaseline='top';
+    var lb=it.name.length>8?it.name.substring(0,7)+'…':it.name;
+    ctx.fillText(lb,0,0);
+    ctx.restore();
+    areas.push({x:x-4,w:step+8,it:it,pct:pct});
   });
   // 累计线
   ctx.strokeStyle='#f59e0b';ctx.lineWidth=2;ctx.beginPath();
-  items.forEach(function(it,idx){var cum2=0;for(var k=0;k<=idx;k++)cum2+=Math.abs(items[k].gap);var p=cum2/totalGap;var px=pad.l+cw*p;var py=pad.t+idx*step+step/2;if(idx===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);});
+  points.forEach(function(p,idx){if(idx===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y);});
   ctx.stroke();
-  // 右轴 100%
-  ctx.strokeStyle='#f1f5f9';ctx.lineWidth=1;for(var i=0;i<=2;i++){var gx=pad.l+cw*i/2;ctx.beginPath();ctx.moveTo(gx,pad.t);ctx.lineTo(gx,pad.t+ch);ctx.stroke();ctx.fillStyle='#f59e0b';ctx.font='9px sans-serif';ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText((i*50)+'%',gx,pad.t+ch+4);}
-  c.onmousemove=function(e){var rect=c.getBoundingClientRect();var my=e.clientY-rect.top;var hit=null;for(var i=0;i<areas.length;i++){var a=areas[i];if(my>=a.y&&my<=a.y+a.h){hit=a;break}}if(hit)showTip(e,'<b>'+hit.it.name+'</b>\n调出落差: '+fmtBox(hit.it.gap)+' 万标箱\n占系统落差: '+(hit.pct*100).toFixed(1)+'%');else hideTip()};
+  c.onmousemove=function(e){var rect=c.getBoundingClientRect();var mx=e.clientX-rect.left;var hit=null;for(var i=0;i<areas.length;i++){var a=areas[i];if(mx>=a.x&&mx<=a.x+a.w){hit=a;break}}if(hit)showTip(e,'<b>'+hit.it.name+'</b>\n调出落差: '+fmtBox(hit.it.gap)+' 万标箱\n累计占系统落差: '+(hit.pct*100).toFixed(1)+'%');else hideTip()};
   c.onmouseleave=hideTip;
 }
 
