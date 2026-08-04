@@ -4605,79 +4605,160 @@ elif st.session_state.current_page == '调出分析':
         
         st.markdown("""
             <style>
-            .header-title-custom {
-                font-size: 20px;
-                font-weight: 600;
-                color: #1E293B;
-            }
-            .header-subtitle-custom {
-                font-size: 14px;
-                color: #64748b;
-                margin-top: 4px;
-            }
-            .export-btn-area {
-                display: flex;
-                justify-content: center;
-                padding: 20px 0;
-                border-top: 1px solid #e2e8f0;
-                margin-top: 16px;
-            }
-            .export-btn {
-                background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+            .ta-header {
+                background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+                border-radius: 12px;
+                padding: 20px 28px;
+                margin-bottom: 16px;
                 color: white;
-                border: none;
-                padding: 12px 32px;
+                box-shadow: 0 4px 12px rgba(30, 64, 175, 0.15);
+            }
+            .ta-title {
+                font-size: 22px;
+                font-weight: 700;
+                margin: 0 0 4px 0;
+                letter-spacing: 0.5px;
+            }
+            .ta-subtitle {
+                font-size: 14px;
+                opacity: 0.9;
+                margin: 0;
+            }
+            .ta-iframe-container {
+                position: relative;
+                border-radius: 12px;
+                overflow: hidden;
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+                background: white;
+            }
+            .ta-iframe-wrapper {
+                max-height: 80vh;
+                overflow-y: auto;
+                overflow-x: hidden;
+                -webkit-overflow-scrolling: touch;
+            }
+            .ta-iframe-wrapper::-webkit-scrollbar {
+                width: 8px;
+            }
+            .ta-iframe-wrapper::-webkit-scrollbar-track {
+                background: #f1f5f9;
+                border-radius: 4px;
+            }
+            .ta-iframe-wrapper::-webkit-scrollbar-thumb {
+                background: #cbd5e1;
+                border-radius: 4px;
+            }
+            .ta-iframe-wrapper::-webkit-scrollbar-thumb:hover {
+                background: #94a3b8;
+            }
+            .ta-loading {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 40px;
+                color: #64748b;
+                font-size: 14px;
+            }
+            .ta-loading-spinner {
+                width: 24px;
+                height: 24px;
+                border: 3px solid #e2e8f0;
+                border-top-color: #3b82f6;
+                border-radius: 50%;
+                animation: ta-spin 0.8s linear infinite;
+                margin-right: 12px;
+            }
+            @keyframes ta-spin {
+                to { transform: rotate(360deg); }
+            }
+            .ta-actions {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 16px 20px;
+                background: #f8fafc;
+                border-radius: 0 0 12px 12px;
+                border-top: 1px solid #e2e8f0;
+            }
+            .ta-action-btn {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                padding: 10px 24px;
                 border-radius: 8px;
                 font-size: 14px;
                 font-weight: 500;
                 cursor: pointer;
-                box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
                 transition: all 0.2s;
-                display: inline-flex;
-                align-items: center;
-                gap: 8px;
+                border: none;
             }
-            .export-btn:hover {
+            .ta-btn-primary {
+                background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                color: white;
+                box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+            }
+            .ta-btn-primary:hover {
                 transform: translateY(-1px);
                 box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
             }
-            </style>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("""
-            <div>
-                <div class='header-title-custom'>调出分析</div>
-                <div class='header-subtitle-custom'>预算执行分析 · 天津调出</div>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        st.components.v1.html(html_content, height=800, scrolling=True)
-        
-        st.markdown("""
-            <div class='export-btn-area'>
-                <button onclick="window.print()" class="export-btn">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                        <line x1="16" y1="13" x2="8" y2="13"/>
-                        <line x1="16" y1="17" x2="8" y2="17"/>
-                        <polyline points="10 9 9 9 8 9"/>
-                    </svg>
-                    导出PDF
-                </button>
-            </div>
-            <style>
-            @media print {
-                .export-btn-area, .stApp header, .stSidebar {
-                    display: none !important;
-                }
-                iframe {
-                    height: auto !important;
-                    max-height: none !important;
-                    overflow: visible !important;
-                }
+            .ta-btn-secondary {
+                background: white;
+                color: #475569;
+                border: 1px solid #e2e8f0;
+            }
+            .ta-btn-secondary:hover {
+                background: #f1f5f9;
+            }
+            .ta-tip {
+                font-size: 12px;
+                color: #64748b;
             }
             </style>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("""
+            <div class='ta-header'>
+                <div class='ta-title'>📊 调出分析</div>
+                <div class='ta-subtitle'>预算执行分析 · 天津调出</div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        # 使用容器包裹iframe，优化滚动体验
+        with st.container():
+            st.markdown('<div class="ta-loading"><div class="ta-loading-spinner"></div>正在加载分析报告...</div>', unsafe_allow_html=True)
+            st.components.v1.html(
+                html_content, 
+                height=900, 
+                scrolling=True
+            )
+        
+        # 添加操作按钮
+        st.markdown("""
+            <div class='ta-actions'>
+                <div class='ta-tip'>💡 支持 Excel 文件上传分析，包含工厂执行明细、品项执行明细、预算执行率等指标</div>
+            </div>
+            <script>
+            // 动态调整iframe高度
+            window.addEventListener('load', function() {
+                var iframes = document.querySelectorAll('iframe');
+                iframes.forEach(function(iframe) {
+                    try {
+                        var doc = iframe.contentDocument || iframe.contentWindow.document;
+                        var height = Math.max(
+                            doc.body.scrollHeight,
+                            doc.documentElement.scrollHeight,
+                            doc.body.offsetHeight,
+                            doc.documentElement.offsetHeight
+                        );
+                        if (height > 0 && height < 20000) {
+                            iframe.style.height = height + 'px';
+                        }
+                    } catch(e) {
+                        console.log('Cannot adjust iframe height');
+                    }
+                });
+            });
+            </script>
         """, unsafe_allow_html=True)
         
     except FileNotFoundError:
