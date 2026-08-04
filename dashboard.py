@@ -685,7 +685,11 @@ with st.sidebar:
     
     if st.button('🔄 刷新数据', use_container_width=True, key='btn_refresh'):
         st.cache_data.clear()
-        st.success("✅ 数据已刷新！")
+        import os
+        for cache_file in ['history_data_cache.pkl', 'maintenance_data.json']:
+            if os.path.exists(cache_file):
+                os.remove(cache_file)
+        st.success("✅ 数据已刷新！所有缓存已清除")
         st.rerun()
     
     st.markdown('<div class="menu-divider"></div>', unsafe_allow_html=True)
@@ -1925,21 +1929,218 @@ if st.session_state.current_page == '需求分析':
             else:
                 pass
 
+    capacity_df = filtered_df.groupby('容量').agg({
+        '需求量': 'sum',
+        '月累排单': 'sum',
+        '去年同期销量': 'sum',
+        '预算销量': 'sum'
+    }).reset_index()
+    capacity_df = capacity_df.sort_values('需求量', ascending=False)
+    capacity_df['预算达成'] = capacity_df.apply(lambda row: 0 if (row['预算销量'] == 0 or row['需求量'] == 0) else (row['需求量'] / row['预算销量'] * 100), axis=1)
+    capacity_df['较同期成长'] = capacity_df.apply(lambda row: 0 if (row['去年同期销量'] == 0 or row['需求量'] == 0) else ((row['需求量'] - row['去年同期销量']) / row['去年同期销量'] * 100), axis=1)
+
+    flavor_df = filtered_df.groupby('口味').agg({
+        '需求量': 'sum',
+        '月累排单': 'sum',
+        '去年同期销量': 'sum',
+        '预算销量': 'sum'
+    }).reset_index()
+    flavor_df = flavor_df.sort_values('需求量', ascending=False)
+    flavor_df['预算达成'] = flavor_df.apply(lambda row: 0 if (row['预算销量'] == 0 or row['需求量'] == 0) else (row['需求量'] / row['预算销量'] * 100), axis=1)
+    flavor_df['较同期成长'] = flavor_df.apply(lambda row: 0 if row['去年同期销量'] == 0 else ((row['需求量'] - row['去年同期销量']) / row['去年同期销量'] * 100), axis=1)
+    flavor_df['差量'] = flavor_df.apply(lambda row: row['月累排单'] - row['需求量'], axis=1)
+    flavor_df['差量率'] = flavor_df.apply(lambda row: 0 if row['需求量'] == 0 else ((row['月累排单'] - row['需求量']) / row['需求量'] * 100), axis=1)
+
+    def build_table_rows_html(df, type_key):
+        rows_html = ''
+        for _, row in df.iterrows():
+            budget_rate = row['预算达成']
+            growth_rate = row['较同期成长']
+            budget_display = f"{budget_rate:.2f}%" if (pd.notna(budget_rate) and abs(budget_rate) != float('inf')) else '--'
+            growth_display = f"{growth_rate:.2f}%" if (pd.notna(growth_rate) and abs(growth_rate) != float('inf')) else '--'
+            growth_color = '#ef4444' if (growth_rate < 0 and pd.notna(growth_rate)) else '#111827'
+
+            if type_key == 'capacity':
+                name_col = row["容量"]
+                diff_amount = row['月累排单'] - row['需求量']
+                diff_rate = (diff_amount / row['需求量'] * 100) if row['需求量'] > 0 else float('nan')
+            else:
+                name_col = row["口味"]
+                diff_amount = row['差量']
+                diff_rate = row['差量率']
+
+            diff_rate_display = f"{diff_rate:.2f}%" if (pd.notna(diff_rate) and abs(diff_rate) != float('inf')) else '--'
+            diff_color = '#dc2626' if (diff_amount < 0 and pd.notna(diff_amount)) else '#059669'
+
+            rows_html += f'<tr><td style="text-align:center;font-weight:600">{name_col}</td><td style="text-align:right">{row["需求量"]:.2f}</td><td style="text-align:right">{row["预算销量"]:.2f}</td><td style="text-align:right">{row["去年同期销量"]:.2f}</td><td style="text-align:right">{budget_display}</td><td style="text-align:right;color:{growth_color};font-weight:600">{growth_display}</td><td style="text-align:right">{row["月累排单"]:.2f}</td><td style="text-align:right;color:{diff_color};font-weight:600">{diff_amount:.2f}</td><td style="text-align:right;color:{diff_color};font-weight:600">{diff_rate_display}</td></tr>'
+        return rows_html
+
+    def build_dept_rows_html(df):
+        rows_html = ''
+        for _, row in df.iterrows():
+            dr_rate = row['排单需求达成率']
+            db_rate = row['排单预算达成率']
+            growth_rate = row['月累排单较同期']
+            dr_color = '#dc2626' if dr_rate < 60 else '#e67e22' if dr_rate < 80 else '#16a34a'
+            db_color = '#dc2626' if db_rate < 60 else '#e67e22' if db_rate < 80 else '#16a34a'
+            growth_color = '#16a34a' if growth_rate >= 0 else '#dc2626'
+            growth_label = '成长' if growth_rate >= 0 else '衰退'
+            rows_html += f'<tr><td style="text-align:center;font-weight:600">{row["营业部"]}</td><td style="text-align:right">{row["需求量"]:.2f}</td><td style="text-align:right">{row["预算销量"]:.2f}</td><td style="text-align:right">{row["去年同期销量"]:.2f}</td><td style="text-align:right">{row["月累排单"]:.2f}</td><td style="text-align:right">{row["月累销量"]:.2f}</td><td style="text-align:right;color:{dr_color};font-weight:600">{dr_rate:.1f}%</td><td style="text-align:right;color:{db_color};font-weight:600">{db_rate:.1f}%</td><td style="text-align:right;color:{growth_color};font-weight:600">{growth_rate:+.1f}% ({growth_label})</td></tr>'
+        return rows_html
+
+    def build_combined_html(cap_df, flv_df, dep_df=None):
+        from datetime import datetime
+        now_str = datetime.now().strftime('%Y-%m-%d %H:%M')
+
+        cap_rows = build_table_rows_html(cap_df, 'capacity')
+        flv_rows = build_table_rows_html(flv_df, 'flavor')
+
+        cap_total_demand = cap_df["需求量"].sum()
+        cap_total_budget = cap_df["预算销量"].sum()
+        cap_total_plan = cap_df["月累排单"].sum()
+        cap_achieve = (cap_total_demand / cap_total_budget * 100) if cap_total_budget > 0 else 0
+
+        flv_total_demand = flv_df["需求量"].sum()
+        flv_total_budget = flv_df["预算销量"].sum()
+        flv_total_plan = flv_df["月累排单"].sum()
+        flv_achieve = (flv_total_demand / flv_total_budget * 100) if flv_total_budget > 0 else 0
+
+        header_row = '<tr><th style="width:14%">类别</th><th style="width:11%">需求量</th><th style="width:11%">预算销量</th><th style="width:11%">同期销量</th><th style="width:11%">预算达成</th><th style="width:12%">较同期成长</th><th style="width:11%">月累排单</th><th style="width:10%">差量</th><th style="width:9%">差量率</th></tr>'
+
+        dept_section = ''
+        if dep_df is not None and not dep_df.empty:
+            dep_rows = build_dept_rows_html(dep_df)
+            dep_total_demand = dep_df["需求量"].sum()
+            dep_total_budget = dep_df["预算销量"].sum()
+            dep_total_plan = dep_df["月累排单"].sum()
+            dep_total_sales = dep_df["月累销量"].sum()
+            dep_achieve = (dep_total_plan / dep_total_demand * 100) if dep_total_demand > 0 else 0
+            dep_budget_achieve = (dep_total_plan / dep_total_budget * 100) if dep_total_budget > 0 else 0
+            dep_header = '<tr><th style="width:12%">营业部</th><th style="width:10%">需求量</th><th style="width:10%">预算销量</th><th style="width:10%">同期销量</th><th style="width:10%">月累排单</th><th style="width:10%">月累销量</th><th style="width:13%">排单需求达成率</th><th style="width:13%">排单预算达成率</th><th style="width:14%">月累排单较同期</th></tr>'
+            dept_section = f'''
+<div class="section page-break">
+    <div class="section-title green">需求分析（营业部别）</div>
+    <div class="table-wrapper"><table><thead>{dep_header}</thead><tbody>{dep_rows}</tbody></table></div>
+    <div class="summary">
+        <div class="summary-item">合计需求量: <span>{dep_total_demand:.2f}</span></div>
+        <div class="summary-item">合计预算: <span>{dep_total_budget:.2f}</span></div>
+        <div class="summary-item">合计排单: <span>{dep_total_plan:.2f}</span></div>
+        <div class="summary-item">合计月累销量: <span>{dep_total_sales:.2f}</span></div>
+        <div class="summary-item">排单需求达成: <span>{dep_achieve:.2f}%</span></div>
+        <div class="summary-item">排单预算达成: <span>{dep_budget_achieve:.2f}%</span></div>
+    </div>
+</div>'''
+
+        html = f'''<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=2.0, user-scalable=yes">
+<title>需求分析明细报告</title>
+<style>
+@page {{ size: A4 landscape; margin: 12mm; }}
+* {{ box-sizing: border-box; }}
+body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; margin: 0; padding: 16px; color: #111827; -webkit-text-size-adjust: 100%; }}
+.report-header {{ text-align: center; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 2px solid #1e3a8a; }}
+.report-header h1 {{ margin: 0 0 4px 0; color: #1e3a8a; font-size: 20px; }}
+.report-header .info {{ font-size: 12px; color: #6b7280; }}
+.section {{ margin-bottom: 20px; }}
+.section-title {{ font-size: 15px; font-weight: 700; color: #fff; background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%); padding: 8px 12px; border-radius: 6px 6px 0 0; }}
+.section-title.orange {{ background: linear-gradient(135deg, #c2410c 0%, #ea580c 100%); }}
+.section-title.green {{ background: linear-gradient(135deg, #166534 0%, #16a34a 100%); }}
+.table-wrapper {{ overflow-x: auto; -webkit-overflow-scrolling: touch; }}
+table {{ width: 100%; border-collapse: collapse; font-size: 12px; min-width: 600px; }}
+thead tr {{ background: #1e3a8a; }}
+th {{ color: #fff; padding: 8px 6px; text-align: center; border: 1px solid #e5e7eb; font-weight: 600; white-space: nowrap; }}
+td {{ padding: 6px; border: 1px solid #e5e7eb; white-space: nowrap; }}
+tbody tr:nth-child(even) {{ background: #f9fafb; }}
+.summary {{ margin-top: 8px; padding: 10px 12px; background: #f3f4f6; border-radius: 0 0 6px 6px; font-size: 12px; color: #374151; display: flex; gap: 16px; flex-wrap: wrap; justify-content: space-around; }}
+.summary-item span {{ font-weight: 700; color: #1e3a8a; }}
+.page-break {{ page-break-before: always; }}
+@media screen and (max-width: 768px) {{
+    body {{ padding: 10px; }}
+    .report-header h1 {{ font-size: 17px; }}
+    .report-header .info {{ font-size: 11px; }}
+    .section-title {{ font-size: 14px; padding: 6px 10px; }}
+    table {{ font-size: 11px; min-width: 500px; }}
+    th {{ padding: 6px 4px; }}
+    td {{ padding: 5px 4px; }}
+    .summary {{ font-size: 11px; gap: 10px; padding: 8px 10px; }}
+    .summary-item span {{ font-size: 13px; }}
+}}
+@media print {{
+    body {{ padding: 0; }}
+    .table-wrapper {{ overflow: visible; }}
+    table {{ min-width: 100%; table-layout: fixed; page-break-inside: auto; }}
+    tr {{ page-break-inside: avoid; page-break-after: auto; }}
+    thead {{ display: table-header-group; }}
+    .section {{ page-break-inside: avoid; }}
+    .page-break {{ page-break-before: always; }}
+}}
+</style></head><body>
+<div class="report-header">
+    <h1>需求分析明细报告</h1>
+    <div class="info">导出时间: {now_str}　|　营业部别 {len(dep_df) if dep_df is not None else 0} 条　|　容量别 {len(cap_df)} 条　|　口味别 {len(flv_df)} 条</div>
+</div>
+
+{dept_section}
+
+<div class="section page-break">
+    <div class="section-title">需求分析（容量别）</div>
+    <div class="table-wrapper"><table><thead>{header_row}</thead><tbody>{cap_rows}</tbody></table></div>
+    <div class="summary">
+        <div class="summary-item">合计需求量: <span>{cap_total_demand:.2f}</span></div>
+        <div class="summary-item">合计预算: <span>{cap_total_budget:.2f}</span></div>
+        <div class="summary-item">合计排单: <span>{cap_total_plan:.2f}</span></div>
+        <div class="summary-item">预算达成: <span>{cap_achieve:.2f}%</span></div>
+    </div>
+</div>
+
+<div class="section page-break">
+    <div class="section-title orange">需求分析（口味别）</div>
+    <div class="table-wrapper"><table><thead>{header_row}</thead><tbody>{flv_rows}</tbody></table></div>
+    <div class="summary">
+        <div class="summary-item">合计需求量: <span>{flv_total_demand:.2f}</span></div>
+        <div class="summary-item">合计预算: <span>{flv_total_budget:.2f}</span></div>
+        <div class="summary-item">合计排单: <span>{flv_total_plan:.2f}</span></div>
+        <div class="summary-item">预算达成: <span>{flv_achieve:.2f}%</span></div>
+    </div>
+</div>
+
+<script>
+window.onload = function() {{
+    var isMobile = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent);
+    if (!isMobile) {{
+        setTimeout(function() {{ window.print(); }}, 300);
+    }}
+}};
+</script>
+</body></html>'''
+        return html
+
+    combined_html = build_combined_html(capacity_df, flavor_df, dept_df)
+
+    export_col, _ = st.columns([1, 4])
+    with export_col:
+        st.download_button(
+            label="📄 导出完整明细PDF（营业部别+容量别+口味别）",
+            data=combined_html,
+            file_name=f"需求分析明细报告_{pd.Timestamp.now().strftime('%Y%m%d')}.html",
+            mime="text/html",
+            use_container_width=True,
+            key='export_combined_pdf',
+            type='primary'
+        )
+
+    st.markdown("""
+    <div style='font-size: 11px; color: #6b7280; padding: 4px 8px; background: #f8fafc; border-radius: 4px; margin-bottom: 12px;'>
+    💡 点击上方按钮下载HTML文件，打开后自动弹出打印对话框，选择"另存为PDF"即可生成包含容量别和口味别的完整明细PDF
+    </div>""", unsafe_allow_html=True)
+
     col_a, col_b = st.columns(2)
 
     with col_a:
-        capacity_df = filtered_df.groupby('容量').agg({
-            '需求量': 'sum',
-            '月累排单': 'sum',
-            '去年同期销量': 'sum',
-            '预算销量': 'sum'
-        }).reset_index()
-        capacity_df = capacity_df.sort_values('需求量', ascending=False)
-        capacity_df['预算达成'] = capacity_df.apply(lambda row: 0 if (row['预算销量'] == 0 or row['需求量'] == 0) else (row['需求量'] / row['预算销量'] * 100), axis=1)
-        capacity_df['较同期成长'] = capacity_df.apply(lambda row: 0 if (row['去年同期销量'] == 0 or row['需求量'] == 0) else ((row['需求量'] - row['去年同期销量']) / row['去年同期销量'] * 100), axis=1)
+        st.markdown("<div style='padding-bottom: 6px;'><span style='font-size: 17px; font-weight: 700; color: #1e293b; border-left: 4px solid #3b82f6; padding-left: 10px;'>需求分析（容量别）</span></div>", unsafe_allow_html=True)
 
-        table_html = "<div class='section-card'>"
-        table_html += "<div class='section-title'>需求分析（容量别）</div>"
+        table_html = "<div class='section-card' style='margin-top: 8px;'>"
         table_html += "<div style='overflow-x: auto; max-height: 400px; overflow-y: auto;'>"
         table_html += "<table class='custom-table'>"
         table_html += "<thead><tr>"
@@ -1949,19 +2150,19 @@ if st.session_state.current_page == '需求分析':
         for _, row in capacity_df.iterrows():
             budget_rate = row['预算达成']
             growth_rate = row['较同期成长']
-            
+
             diff_amount = row['月累排单'] - row['需求量']
             diff_rate = (diff_amount / row['需求量'] * 100) if row['需求量'] > 0 else float('nan')
-            
+
             budget_display = f"{budget_rate:.2f}%" if (pd.notna(budget_rate) and abs(budget_rate) != float('inf')) else '--'
             growth_display = f"{growth_rate:.2f}%" if (pd.notna(growth_rate) and abs(growth_rate) != float('inf')) else '--'
             diff_rate_display = f"{diff_rate:.2f}%" if (pd.notna(diff_rate) and abs(diff_rate) != float('inf')) else '--'
-            
+
             growth_style = "color: #ef4444; font-weight: bold;" if (growth_rate < 0 and pd.notna(growth_rate)) else ""
-            
+
             diff_color = '#dc2626' if (diff_amount < 0 and pd.notna(diff_amount)) else '#059669'
             diff_style = f"color: {diff_color}; font-weight: bold;"
-            
+
             table_html += "<tr>"
             table_html += f"<td>{row['容量']}</td>"
             table_html += f"<td>{row['需求量']:.2f}</td>"
@@ -1978,20 +2179,9 @@ if st.session_state.current_page == '需求分析':
         st.markdown(table_html, unsafe_allow_html=True)
 
     with col_b:
-        flavor_df = filtered_df.groupby('口味').agg({
-            '需求量': 'sum',
-            '月累排单': 'sum',
-            '去年同期销量': 'sum',
-            '预算销量': 'sum'
-        }).reset_index()
-        flavor_df = flavor_df.sort_values('需求量', ascending=False)
-        flavor_df['预算达成'] = flavor_df.apply(lambda row: 0 if (row['预算销量'] == 0 or row['需求量'] == 0) else (row['需求量'] / row['预算销量'] * 100), axis=1)
-        flavor_df['较同期成长'] = flavor_df.apply(lambda row: 0 if row['去年同期销量'] == 0 else ((row['需求量'] - row['去年同期销量']) / row['去年同期销量'] * 100), axis=1)
-        flavor_df['差量'] = flavor_df.apply(lambda row: row['月累排单'] - row['需求量'], axis=1)
-        flavor_df['差量率'] = flavor_df.apply(lambda row: 0 if row['需求量'] == 0 else ((row['月累排单'] - row['需求量']) / row['需求量'] * 100), axis=1)
+        st.markdown("<div style='padding-bottom: 6px;'><span style='font-size: 17px; font-weight: 700; color: #1e293b; border-left: 4px solid #f97316; padding-left: 10px;'>需求分析（口味别）</span></div>", unsafe_allow_html=True)
 
-        table_html = "<div class='section-card'>"
-        table_html += "<div class='section-title'>需求分析（口味别）</div>"
+        table_html = "<div class='section-card' style='margin-top: 8px;'>"
         table_html += "<div style='overflow-x: auto; max-height: 400px; overflow-y: auto;'>"
         table_html += "<table class='custom-table'>"
         table_html += "<thead><tr>"
@@ -2002,16 +2192,16 @@ if st.session_state.current_page == '需求分析':
             budget_rate = row['预算达成']
             growth_rate = row['较同期成长']
             diff_rate = row['差量率']
-            
+
             budget_display = f"{budget_rate:.2f}%" if (pd.notna(budget_rate) and abs(budget_rate) != float('inf')) else '--'
             growth_display = f"{growth_rate:.2f}%" if (pd.notna(growth_rate) and abs(growth_rate) != float('inf')) else '--'
             diff_rate_display = f"{diff_rate:.2f}%" if (pd.notna(diff_rate) and abs(diff_rate) != float('inf')) else '--'
-            
+
             growth_style = "color: #ef4444; font-weight: bold;" if (growth_rate < 0 and pd.notna(growth_rate)) else ""
-            
+
             diff_color = '#dc2626' if (row['差量'] < 0 and pd.notna(row['差量'])) else '#059669'
             diff_style = f"color: {diff_color}; font-weight: bold;"
-            
+
             table_html += "<tr>"
             table_html += f"<td>{row['口味']}</td>"
             table_html += f"<td>{row['需求量']:.2f}</td>"
@@ -2256,13 +2446,25 @@ elif st.session_state.current_page == '历史销量':
 
     df_2026_actual, df_2025_actual, df_2026_budget, material_flavor_map = load_saved_data()
     
-    if df_2026_actual.empty and df_2025_actual.empty and df_2026_budget.empty:
+    need_reload = df_2026_actual.empty and df_2025_actual.empty and df_2026_budget.empty
+    
+    if not need_reload:
+        import os
+        if os.path.exists('2026销量.xlsx') and os.path.exists(SAVE_FILE):
+            excel_mtime = os.path.getmtime('2026销量.xlsx')
+            cache_mtime = os.path.getmtime(SAVE_FILE)
+            if excel_mtime > cache_mtime:
+                need_reload = True
+                if os.path.exists(SAVE_FILE):
+                    os.remove(SAVE_FILE)
+    
+    if need_reload:
         import os
         if os.path.exists('2026销量.xlsx'):
             file_mod_time = get_file_modified_time('2026销量.xlsx')
             df_2026_actual, df_2025_actual, df_2026_budget, material_flavor_map = cached_load_history_data('2026销量.xlsx', file_mod_time)
             save_data(df_2026_actual, df_2025_actual, df_2026_budget, material_flavor_map)
-            st.success("已从默认数据文件加载数据！")
+            st.success("已从默认数据文件加载最新数据！")
 
     st.markdown("""
         <div class='header-card-history'>
