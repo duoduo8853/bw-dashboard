@@ -5528,13 +5528,13 @@ elif st.session_state.current_page == '大修进度':
             column_config={
                 "工厂": st.column_config.TextColumn("工厂", disabled=True),
                 "生产线名称": st.column_config.TextColumn("生产线名称"),
-                "线别代码": st.column_config.TextColumn("线别代码", disabled=True),
+                "线别代码": st.column_config.TextColumn("线别代码"),
                 "开始时间": st.column_config.DateColumn("开始时间", min_value=pd.Timestamp('2026-01-01'), max_value=pd.Timestamp('2027-12-31')),
                 "结束日期": st.column_config.DateColumn("结束日期", min_value=pd.Timestamp('2026-01-01'), max_value=pd.Timestamp('2027-12-31')),
                 "任务完成度": st.column_config.SelectboxColumn("状态", options=["未开始", "进行中", "已完成"]),
                 "生产线类别": st.column_config.TextColumn("类别", disabled=True),
                 "产线责任人": st.column_config.TextColumn("责任人", disabled=True),
-                "产线可生产品项": st.column_config.TextColumn("可生产品项", disabled=True, width="large"),
+                "产线可生产品项": st.column_config.TextColumn("可生产品项", width="large"),
                 "大修天数": st.column_config.NumberColumn("大修天数", disabled=True),
             },
             hide_index=True,
@@ -5552,7 +5552,15 @@ elif st.session_state.current_page == '大修进度':
                     edited_copy['大修天数'] = (edited_copy['结束日期'] - edited_copy['开始时间']).dt.days + 1
                     
                     current = st.session_state.edited_maintenance_df
-                    cols_to_update = ['生产线名称', '开始时间', '结束日期', '任务完成度', '大修天数']
+                    cols_to_update = [
+                        '生产线名称',
+                        '线别代码',
+                        '开始时间',
+                        '结束日期',
+                        '任务完成度',
+                        '产线可生产品项',
+                        '大修天数',
+                    ]
                     
                     updated = current.copy()
                     for col in cols_to_update:
