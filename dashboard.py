@@ -312,18 +312,8 @@ def load_mappings(file_mod_time_bw=0, file_mod_time_rel=0):
             product20_map = product20_df.groupby('2.0产品')['口味别'].apply(list).to_dict()
         
         import os
-        if os.path.exists('对应关系.xlsx'):
-            print("优先从对应关系.xlsx 加载物料对应关系")
-            xls2 = pd.ExcelFile('对应关系.xlsx')
-            if '物料对应关系' in xls2.sheet_names:
-                material_df = pd.read_excel(xls2, sheet_name='物料对应关系')
-                material_map = process_material_data(material_df)
-                print(f"成功从对应关系.xlsx 加载物料映射: {len(material_map.get('flavors', []))} 口味, {len(material_map.get('capacities', []))} 容量, {len(material_map.get('packages', []))} 内包装")
-        elif '物料对应关系' in xls.sheet_names:
-            material_df = pd.read_excel(xls, sheet_name='物料对应关系')
-            material_map = process_material_data(material_df)
-        else:
-            print("未找到物料对应关系数据")
+        # 物料对应关系功能已取消，通过数据自身的「全国通用物料」「口味」「容量」列关联
+        material_map = {}
 
         return project_map, product30_map, product20_map, material_map
     except Exception as e:
@@ -398,41 +388,51 @@ def filter_data(df, region, dept, months, flavor, capacity, package, project, pr
     if isinstance(months, list) and len(months) > 0 and '月份' in filtered.columns:
         filtered = filtered[filtered['月份'].isin(months)]
     
-    if project != '全部' and project_map and material_col and material_col in filtered.columns:
+    if project != '全部' and project_map:
         project_flavors = project_map.get(project, [])
         if project_flavors:
-            materials_to_keep = set()
-            for f in project_flavors:
-                if f in flavor_to_materials:
-                    materials_to_keep.update(flavor_to_materials[f])
-            if materials_to_keep:
-                filtered = filtered[filtered[material_col].astype(str).str.strip().isin(materials_to_keep)]
-        elif '口味' in filtered.columns:
-            filtered = filtered[filtered['口味'].isin(project_flavors)]
+            # 优先使用物料号过滤,不可用时回退到口味过滤(参考需求分析看板)
+            if material_col and material_col in filtered.columns and flavor_to_materials:
+                materials_to_keep = set()
+                for f in project_flavors:
+                    if f in flavor_to_materials:
+                        materials_to_keep.update(flavor_to_materials[f])
+                if materials_to_keep:
+                    filtered = filtered[filtered[material_col].astype(str).str.strip().isin(materials_to_keep)]
+                elif '口味' in filtered.columns:
+                    filtered = filtered[filtered['口味'].isin(project_flavors)]
+            elif '口味' in filtered.columns:
+                filtered = filtered[filtered['口味'].isin(project_flavors)]
     
-    if product30 != '全部' and product30_map and material_col and material_col in filtered.columns:
+    if product30 != '全部' and product30_map:
         product30_flavors = product30_map.get(product30, [])
         if product30_flavors:
-            materials_to_keep = set()
-            for f in product30_flavors:
-                if f in flavor_to_materials:
-                    materials_to_keep.update(flavor_to_materials[f])
-            if materials_to_keep:
-                filtered = filtered[filtered[material_col].astype(str).str.strip().isin(materials_to_keep)]
-        elif '口味' in filtered.columns:
-            filtered = filtered[filtered['口味'].isin(product30_flavors)]
+            if material_col and material_col in filtered.columns and flavor_to_materials:
+                materials_to_keep = set()
+                for f in product30_flavors:
+                    if f in flavor_to_materials:
+                        materials_to_keep.update(flavor_to_materials[f])
+                if materials_to_keep:
+                    filtered = filtered[filtered[material_col].astype(str).str.strip().isin(materials_to_keep)]
+                elif '口味' in filtered.columns:
+                    filtered = filtered[filtered['口味'].isin(product30_flavors)]
+            elif '口味' in filtered.columns:
+                filtered = filtered[filtered['口味'].isin(product30_flavors)]
     
-    if product20 != '全部' and product20_map and material_col and material_col in filtered.columns:
+    if product20 != '全部' and product20_map:
         product20_flavors = product20_map.get(product20, [])
         if product20_flavors:
-            materials_to_keep = set()
-            for f in product20_flavors:
-                if f in flavor_to_materials:
-                    materials_to_keep.update(flavor_to_materials[f])
-            if materials_to_keep:
-                filtered = filtered[filtered[material_col].astype(str).str.strip().isin(materials_to_keep)]
-        elif '口味' in filtered.columns:
-            filtered = filtered[filtered['口味'].isin(product20_flavors)]
+            if material_col and material_col in filtered.columns and flavor_to_materials:
+                materials_to_keep = set()
+                for f in product20_flavors:
+                    if f in flavor_to_materials:
+                        materials_to_keep.update(flavor_to_materials[f])
+                if materials_to_keep:
+                    filtered = filtered[filtered[material_col].astype(str).str.strip().isin(materials_to_keep)]
+                elif '口味' in filtered.columns:
+                    filtered = filtered[filtered['口味'].isin(product20_flavors)]
+            elif '口味' in filtered.columns:
+                filtered = filtered[filtered['口味'].isin(product20_flavors)]
     
     if flavor != '全部':
         if flavor_to_materials and flavor in flavor_to_materials and material_col and material_col in filtered.columns:
@@ -541,6 +541,8 @@ rel_mod_time = get_file_mod_time('对应关系.xlsx')
 project_map, product30_map, product20_map, material_map = load_mappings(bw_mod_time, rel_mod_time)
 
 if 'current_page' not in st.session_state:
+    st.session_state.current_page = '需求分析'
+elif st.session_state.current_page == '首页概览':
     st.session_state.current_page = '需求分析'
 
 with st.sidebar:
@@ -658,11 +660,6 @@ with st.sidebar:
     if st.button('营业额分析', key='btn_revenue', use_container_width=True):
         st.session_state.current_page = '营业额分析'
     
-    if st.session_state.current_page == '物料对应关系':
-        st.markdown('<style>[data-testid="stSidebar"] [data-testid="baseButton-secondary-btn_material"] { background-color: #eff6ff !important; color: #1e40af !important; font-weight: 600; }</style>', unsafe_allow_html=True)
-    if st.button('物料对应关系', key='btn_material', use_container_width=True):
-        st.session_state.current_page = '物料对应关系'
-    
     if st.session_state.current_page == '调出分析':
         st.markdown('<style>[data-testid="stSidebar"] [data-testid="baseButton-secondary-btn_adjust"] { background-color: #eff6ff !important; color: #1e40af !important; font-weight: 600; }</style>', unsafe_allow_html=True)
     if st.button('调出分析', key='btn_adjust', use_container_width=True):
@@ -686,17 +683,29 @@ with st.sidebar:
     if st.button('🔄 刷新数据', use_container_width=True, key='btn_refresh'):
         st.cache_data.clear()
         import os
-        for cache_file in ['history_data_cache.pkl', 'maintenance_data.json']:
+        # 仅删除历史销量缓存（源文件 2026销量.xlsx 已有最新数据，删除 pkl 可强制重载）
+        # 注意：不删除 maintenance_data.json（含大修进度用户编辑）
+        for cache_file in ['history_data_cache.pkl']:
             if os.path.exists(cache_file):
                 os.remove(cache_file)
+        # 清除产量数据缓存，强制重新从文件加载
+        if 'output_data' in st.session_state:
+            del st.session_state['output_data']
+        from datetime import datetime
+        st.session_state.last_refresh = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         st.success("✅ 数据已刷新！所有缓存已清除")
         st.rerun()
+    
+    if 'last_refresh' in st.session_state:
+        st.caption(f"🔄 最后刷新: {st.session_state.last_refresh}")
     
     st.markdown('<div class="menu-divider"></div>', unsafe_allow_html=True)
     
     st.markdown('<div class="menu-section-label">设置</div>', unsafe_allow_html=True)
-    st.button('系统设置', use_container_width=True, key='btn_settings')
-    st.button('退出登录', use_container_width=True, key='btn_logout')
+    if st.button('⚙️ 系统设置', use_container_width=True, key='btn_settings'):
+        st.session_state.current_page = '系统设置'
+    if st.button('ℹ️ 关于系统', use_container_width=True, key='btn_about'):
+        st.session_state.current_page = '关于系统'
 
 st.markdown("""
     <style>
@@ -1034,10 +1043,165 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-if st.session_state.current_page == '需求分析':
+# ==================== 页面0：首页概览 ====================
+if st.session_state.current_page == '首页概览':
     import os
     from datetime import datetime
-    
+
+    bw_time = '未知'
+    if os.path.exists('BW数据.xlsx'):
+        bw_time = datetime.fromtimestamp(os.path.getmtime('BW数据.xlsx')).strftime('%Y-%m-%d %H:%M')
+
+    st.markdown(f"""
+        <div class='header-card'>
+            <div class='header-title'>🏠 产销协调 · 首页概览</div>
+            <div class='header-subtitle'>全局数据总览 | 数据更新: {bw_time}</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # ===== 核心 KPI =====
+    total_demand = int(df['需求量'].sum()) if not df.empty and '需求量' in df.columns else 0
+    total_budget = int(df['预算销量'].sum()) if not df.empty and '预算销量' in df.columns else 0
+    total_lastyear = int(df['去年同期销量'].sum()) if not df.empty and '去年同期销量' in df.columns else 0
+    achievement_rate = round(total_demand / total_budget * 100, 1) if total_budget > 0 else 0
+    yoy_growth = round((total_demand - total_lastyear) / total_lastyear * 100, 1) if total_lastyear > 0 else 0
+
+    # 营业额汇总
+    revenue_total = 0.0
+    revenue_budget = 0.0
+    try:
+        if os.path.exists('天津、河北行销达成.xlsx'):
+            xls_rev = pd.ExcelFile('天津、河北行销达成.xlsx')
+            for sheet in xls_rev.sheet_names:
+                if '天津' in sheet or '河北' in sheet:
+                    rev_df = pd.read_excel(xls_rev, sheet_name=sheet)
+                    if '实际' in rev_df.columns:
+                        revenue_total += float(pd.to_numeric(rev_df['实际'], errors='coerce').fillna(0).sum())
+                    if '预算' in rev_df.columns:
+                        revenue_budget += float(pd.to_numeric(rev_df['预算'], errors='coerce').fillna(0).sum())
+    except Exception:
+        pass
+    revenue_rate = round(revenue_total / revenue_budget * 100, 1) if revenue_budget > 0 else 0
+
+    c1, c2, c3, c4, c5 = st.columns(5)
+    with c1:
+        st.metric("📦 总需求量", f"{total_demand:,}")
+    with c2:
+        st.metric("🎯 预算销量", f"{total_budget:,}")
+    with c3:
+        st.metric("📊 达成率", f"{achievement_rate}%")
+    with c4:
+        delta_color = "normal" if yoy_growth >= 0 else "inverse"
+        st.metric("📈 同比增长", f"{yoy_growth:+.1f}%", delta=f"去年同期 {total_lastyear:,}", delta_color=delta_color)
+    with c5:
+        st.metric("💰 营业额", f"{revenue_total/10000:,.1f}万" if revenue_total > 0 else "暂无", delta=f"达成 {revenue_rate}%" if revenue_budget > 0 else None)
+
+    st.markdown("---")
+
+    # ===== 图表区 =====
+    col_left, col_right = st.columns([3, 2], gap='medium')
+
+    with col_left:
+        st.subheader("📈 月度需求 / 预算 / 去年同期对比")
+        if not df.empty and '月份' in df.columns:
+            monthly_df = df.groupby('月份').agg(
+                需求量=('需求量', 'sum'),
+                预算销量=('预算销量', 'sum'),
+                去年同期=('去年同期销量', 'sum')
+            ).reset_index()
+            monthly_df['_sort'] = monthly_df['月份'].apply(lambda x: int(str(x).replace('月', '')) if str(x).replace('月', '').isdigit() else 99)
+            monthly_df = monthly_df.sort_values('_sort').drop(columns=['_sort'])
+
+            fig = go.Figure()
+            fig.add_trace(go.Bar(name='需求量', x=monthly_df['月份'], y=monthly_df['需求量'], marker_color='#3b82f6'))
+            fig.add_trace(go.Bar(name='预算销量', x=monthly_df['月份'], y=monthly_df['预算销量'], marker_color='#10b981'))
+            fig.add_trace(go.Scatter(name='去年同期', x=monthly_df['月份'], y=monthly_df['去年同期'], mode='lines+markers', marker_color='#f59e0b', line=dict(width=2)))
+            fig.update_layout(barmode='group', height=380, template='plotly_white',
+                              paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                              font=dict(color='#475569'), legend=dict(orientation='h', y=-0.2),
+                              margin=dict(l=20, r=20, t=10, b=10))
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("暂无销量数据，请上传 BW数据.xlsx")
+
+    with col_right:
+        st.subheader("🏆 区域需求占比")
+        if not df.empty and '营业部' in df.columns:
+            region_data = []
+            for region_name, depts in REGION_DEPT_MAP.items():
+                region_qty = int(df[df['营业部'].isin(depts)]['需求量'].sum()) if '需求量' in df.columns else 0
+                region_data.append({'区域': region_name, '需求量': region_qty})
+            if any(d['需求量'] > 0 for d in region_data):
+                fig_r = go.Figure(data=[go.Pie(labels=[d['区域'] for d in region_data],
+                                               values=[d['需求量'] for d in region_data], hole=0.4,
+                                               marker_colors=['#3b82f6', '#f59e0b'])])
+                fig_r.update_layout(height=380, template='plotly_white',
+                                    paper_bgcolor='rgba(0,0,0,0)',
+                                    font=dict(color='#475569'),
+                                    margin=dict(l=20, r=20, t=10, b=10))
+                st.plotly_chart(fig_r, use_container_width=True)
+            else:
+                st.info("暂无区域数据")
+        else:
+            st.info("暂无数据")
+
+    st.markdown("---")
+
+    # ===== 快捷导航 =====
+    st.subheader("🧭 快捷导航")
+    nav1, nav2, nav3, nav4 = st.columns(4)
+    with nav1:
+        if st.button("📊 需求分析看板", key='nav_demand', use_container_width=True):
+            st.session_state.current_page = '需求分析'
+    with nav2:
+        if st.button("📈 历史销量", key='nav_history', use_container_width=True):
+            st.session_state.current_page = '历史销量'
+    with nav3:
+        if st.button("🏭 产量一览", key='nav_output', use_container_width=True):
+            st.session_state.current_page = '产量一览'
+    with nav4:
+        if st.button("💰 营业额分析", key='nav_revenue', use_container_width=True):
+            st.session_state.current_page = '营业额分析'
+
+    st.markdown("---")
+
+    # ===== 数据文件状态 =====
+    st.subheader("📂 数据文件状态")
+    files_status = [
+        ('BW数据.xlsx', '需求/销量数据'),
+        ('产量数据.xlsx', '产量数据'),
+        ('天津、河北行销达成.xlsx', '营业额数据'),
+    ]
+    status_cols = st.columns(len(files_status))
+    for i, (fname, desc) in enumerate(files_status):
+        with status_cols[i]:
+            if os.path.exists(fname):
+                mtime = datetime.fromtimestamp(os.path.getmtime(fname)).strftime('%m-%d %H:%M')
+                size = os.path.getsize(fname) / 1024
+                st.success(f"✅ {desc}\n\n📁 {fname}\n📦 {size:.0f}KB · {mtime}")
+            else:
+                st.warning(f"⚠️ {desc}\n\n📁 {fname}\n尚未上传")
+
+# ==================== 页面1：需求分析 ====================
+elif st.session_state.current_page == '需求分析':
+    import os
+    from datetime import datetime
+
+    # 加载2026销量表出货数据(用于口味/容量筛选选项)
+    # 口味/容量列在"出货-天津-部2"和"出货-河北-部2"sheet中
+    df_2026_filters = pd.DataFrame()
+    if os.path.exists('2026销量.xlsx'):
+        try:
+            _xls_2026 = pd.ExcelFile('2026销量.xlsx')
+            _df_list = []
+            for _s in ['出货-天津-部2', '出货-河北-部2']:
+                if _s in _xls_2026.sheet_names:
+                    _df_list.append(pd.read_excel(_xls_2026, sheet_name=_s))
+            if _df_list:
+                df_2026_filters = pd.concat(_df_list, ignore_index=True)
+        except Exception as _e:
+            print(f"加载2026销量表出货数据失败: {_e}")
+
     file_path = 'BW数据.xlsx'
     update_time = '未知'
     if os.path.exists(file_path):
@@ -1065,7 +1229,7 @@ if st.session_state.current_page == '需求分析':
         st.session_state['clear_filters'] = False
         st.rerun()
 
-    upload_col, _ = st.columns([3, 7])
+    upload_col, push_col, preview_col = st.columns([4, 1, 1])
     with upload_col:
         uploaded_file = st.file_uploader(
             '📁 上传Excel数据',
@@ -1094,6 +1258,305 @@ if st.session_state.current_page == '需求分析':
             except Exception as e:
                 st.error(f'❌ 上传失败: {str(e)}')
 
+    with push_col:
+        push_clicked = st.button('📤 推送至飞书', use_container_width=True, key='btn_push_feishu_report', type='primary')
+
+    with preview_col:
+        preview_clicked = st.button('👁 预览报告内容', use_container_width=True, key='btn_preview_feishu_report')
+
+    # ===== 飞书推送专案报告 =====
+    FEISHU_WEBHOOK_URL = 'https://open.feishu.cn/open-apis/bot/v2/hook/97964ac4-a4f0-4c5d-9e1b-bbc2dd9324f6'
+
+    def _compute_project_analysis(proj_df):
+        """计算单个专案的口味明细/容量别/营业部别详细分析"""
+        if proj_df.empty:
+            return {'口味明细': [], '容量别': [], '营业部别': []}
+        # 口味明细
+        flv_df = proj_df.groupby('口味').agg({'需求量': 'sum', '月累排单': 'sum', '预算销量': 'sum', '去年同期销量': 'sum'}).reset_index()
+        flv_df = flv_df.sort_values('需求量', ascending=False)
+        口味明细 = []
+        for _, r in flv_df.iterrows():
+            rate = (r['月累排单'] / r['预算销量'] * 100) if r['预算销量'] > 0 else 0
+            # 较同期成长：参考卡片计算逻辑（需求量 vs 去年同期销量）
+            growth = ((r['需求量'] - r['去年同期销量']) / r['去年同期销量'] * 100) if r['去年同期销量'] > 0 else 0
+            口味明细.append({'口味': r['口味'], '需求量': float(r['需求量']), '月累排单': float(r['月累排单']), '预算销量': float(r['预算销量']), '预算达成率': float(rate), '较同期成长': float(growth)})
+        # 容量别
+        容量别 = []
+        if '容量' in proj_df.columns:
+            cap_df = proj_df.groupby('容量').agg({'需求量': 'sum', '月累排单': 'sum', '预算销量': 'sum'}).reset_index()
+            cap_df = cap_df.sort_values('需求量', ascending=False)
+            for _, r in cap_df.iterrows():
+                diff = float(r['月累排单'] - r['需求量'])
+                diff_rate = (diff / r['需求量'] * 100) if r['需求量'] > 0 else 0
+                容量别.append({'容量': r['容量'], '需求量': float(r['需求量']), '月累排单': float(r['月累排单']), '差异量': diff, '差异率': float(diff_rate)})
+        # 营业部别
+        dept_df = proj_df.groupby('营业部').agg({'需求量': 'sum', '月累排单': 'sum', '预算销量': 'sum'}).reset_index()
+        dept_df['预算达成率'] = dept_df.apply(lambda r: (r['月累排单'] / r['预算销量'] * 100) if r['预算销量'] > 0 else 0, axis=1)
+        dept_df = dept_df.sort_values('预算达成率', ascending=False)
+        营业部别 = [{'营业部': r['营业部'], '需求量': float(r['需求量']), '月累排单': float(r['月累排单']), '预算销量': float(r['预算销量']), '预算达成率': float(r['预算达成率'])} for _, r in dept_df.iterrows()]
+        return {'口味明细': 口味明细, '容量别': 容量别, '营业部别': 营业部别}
+
+    def generate_project_report_data():
+        """生成专案报告数据：总体概览 + 各行销公司各专案（含营业部别/容量别/口味明细分析）"""
+        if df.empty:
+            return {'overview': {}, 'regions': []}
+        # --- 总体概览 ---
+        total_demand = float(df['需求量'].sum())
+        total_budget = float(df['预算销量'].sum())
+        total_order = float(df['月累排单'].sum()) if '月累排单' in df.columns else 0.0
+        total_last_year = float(df['去年同期销量'].sum())
+        overview = {
+            '总需求量': total_demand, '总预算销量': total_budget, '月累排单': total_order,
+            '预算达成率': (total_order / total_budget * 100) if total_budget > 0 else 0,
+            '较同期成长': ((total_demand - total_last_year) / total_last_year * 100) if total_last_year > 0 else 0,
+            '月累排单达成率': (total_order / total_demand * 100) if total_demand > 0 else 0,
+            '去年同期销量': total_last_year,
+        }
+        # --- 各行销公司各专案（含详细分析） ---
+        regions = []
+        for region_name, depts in REGION_DEPT_MAP.items():
+            region_df = df[df['营业部'].isin(depts)]
+            region_report = {'行销公司': region_name, '专案列表': []}
+            for project_name, flavors in project_map.items():
+                proj_df = region_df[region_df['口味'].isin(flavors)]
+                if proj_df.empty:
+                    continue
+                demand = float(proj_df['需求量'].sum())
+                budget = float(proj_df['预算销量'].sum())
+                monthly_order = float(proj_df['月累排单'].sum()) if '月累排单' in proj_df.columns else 0.0
+                last_year = float(proj_df['去年同期销量'].sum())
+                budget_rate = (monthly_order / budget * 100) if budget > 0 else 0
+                # 较同期成长：参考卡片计算逻辑（需求量 vs 去年同期销量）
+                growth = ((demand - last_year) / last_year * 100) if last_year > 0 else 0
+                # 月累排单达成率
+                order_fulfillment_rate = (monthly_order / demand * 100) if demand > 0 else 0
+                gap = demand - monthly_order
+                order_demand_diff = monthly_order - demand
+                order_demand_diff_rate = (order_demand_diff / demand * 100) if demand > 0 else 0
+                region_report['专案列表'].append({
+                    '专案名': project_name, '需求量': demand, '预算销量': budget,
+                    '月累排单': monthly_order, '去年同期': last_year,
+                    '预算达成率': budget_rate, '较同期成长': growth, '缺口': gap,
+                    '排单较需求差异量': order_demand_diff, '排单较需求差异率': order_demand_diff_rate,
+                    '月累排单达成率': order_fulfillment_rate,
+                    '明细分析': _compute_project_analysis(proj_df),
+                })
+            regions.append(region_report)
+        return {'overview': overview, 'regions': regions}
+
+    def build_feishu_card(report_data):
+        """构建飞书互动卡片消息（背景色 + 数字颜色管理 + 较同期红绿 + 移动端优化）"""
+        from datetime import datetime as _dt
+        elements = []
+
+        def _rc(rate):
+            """达成率颜色（用于font标签）"""
+            if rate >= 100:
+                return "green"
+            elif rate >= 80:
+                return "orange"
+            else:
+                return "red"
+
+        def _rf(rate, fmt=".1f"):
+            """格式化达成率（数字带颜色）"""
+            return f"<font color='{_rc(rate)}'>{format(rate, fmt)}%</font>"
+
+        def _dc(diff):
+            """差异量颜色"""
+            return "green" if diff >= 0 else "red"
+
+        def _gf(growth):
+            """较同期带颜色（正绿负红，含方向箭头）"""
+            color = "green" if growth >= 0 else "red"
+            arrow = "▲" if growth >= 0 else "▼"
+            return f"<font color='{color}'>{arrow}{growth:+.1f}%</font>"
+
+        def _bg_row(content, bg):
+            """构建带背景色的标题行（单列 column_set，突出显示）"""
+            return {
+                "tag": "column_set", "flex_mode": "stretch",
+                "columns": [
+                    {"tag": "column", "width": "weighted", "weight": 1,
+                     "background_style": bg, "vertical_align": "center",
+                     "elements": [{"tag": "div", "text": {"tag": "lark_md", "content": content, "text_size": "heading-4"}}]}
+                ]
+            }
+
+        def _col(label, value, weight=1):
+            """构建单列（标签+数值合并，减少元素数）"""
+            return {"tag": "column", "width": "weighted", "weight": weight, "vertical_align": "top",
+                    "elements": [{"tag": "div", "text": {"tag": "lark_md", "content": f"{label}\n**{value}**"}}]}
+
+        # --- 总体概览 ---
+        ov = report_data.get('overview', {})
+        if ov:
+            elements.append(_bg_row("📊 **总体概览**", "blue-50"))
+            elements.append({
+                "tag": "column_set", "flex_mode": "stretch",
+                "columns": [
+                    _col("总需求量", f"{ov['总需求量']:,.0f}"),
+                    _col("总预算", f"{ov['总预算销量']:,.0f}"),
+                    _col("月累排单", f"{ov['月累排单']:,.0f}"),
+                    _col("预算达成率", _rf(ov['预算达成率'])),
+                ]
+            })
+            elements.append({"tag": "note", "elements": [{"tag": "lark_md", "content": f"月累排单达成率: {ov['月累排单达成率']:.1f}%  |  较同期: {_gf(ov['较同期成长'])}  |  去年同期: {ov['去年同期销量']:,.0f}"}]})
+            elements.append({"tag": "hr"})
+
+        # --- 各行销公司各专案 ---
+        for region in report_data.get('regions', []):
+            elements.append(_bg_row(f"🏢 **{region['行销公司']}**（共{len(region['专案列表'])}个专案）", "blue-100"))
+            for idx, proj in enumerate(region['专案列表']):
+                diff_val = proj.get('排单较需求差异量', 0)
+                diff_rate = proj.get('排单较需求差异率', 0)
+                diff_color = _dc(diff_val)
+                if idx > 0:
+                    elements.append({"tag": "hr"})
+                # 专案标题行：灰色背景，突出显示
+                elements.append(_bg_row(f"📌 **{proj['专案名']}** — 预算达成率 {_rf(proj['预算达成率'])}  |  较同期 {_gf(proj['较同期成长'])}", "grey-100"))
+                # KPI列（flex_mode stretch 移动端自适应，单行差异值避免换行错位）
+                elements.append({
+                    "tag": "column_set", "flex_mode": "stretch",
+                    "columns": [
+                        _col("需求量", f"{proj['需求量']:,.0f}"),
+                        _col("预算销量", f"{proj['预算销量']:,.0f}"),
+                        _col("月累排单", f"{proj['月累排单']:,.0f}"),
+                        _col("排单较需求", f"<font color='{diff_color}'>{diff_val:+,.0f}({diff_rate:+.1f}%)</font>"),
+                        _col("排单达成率", _rf(proj.get('月累排单达成率', 0))),
+                    ]
+                })
+
+                # 该专案下的详细分析（· 分隔避免移动端换行错位）
+                da = proj.get('明细分析', {})
+                if da.get('营业部别'):
+                    parts = [f"{d['营业部']}({_rf(d['预算达成率'], '.0f')})" for d in da['营业部别']]
+                    elements.append({"tag": "div", "text": {"tag": "lark_md", "content": "🏪 **营业部别**  " + " · ".join(parts)}})
+                if da.get('容量别'):
+                    parts = [f"{c['容量']}: 需求{c['需求量']:,.0f} 排单{c['月累排单']:,.0f} 差异<font color='{_dc(c['差异量'])}'>{c['差异量']:+,.0f}({c['差异率']:+.1f}%)</font>" for c in da['容量别']]
+                    elements.append({"tag": "div", "text": {"tag": "lark_md", "content": "📦 **容量别**\n" + "\n".join(parts)}})
+                if da.get('口味明细'):
+                    parts = [f"{f['口味']}: 需求{f['需求量']:,.0f} 排单{f['月累排单']:,.0f} 达成{_rf(f['预算达成率'])} 较同期{_gf(f['较同期成长'])}" for f in da['口味明细']]
+                    elements.append({"tag": "div", "text": {"tag": "lark_md", "content": "📈 **口味明细**\n" + "\n".join(parts)}})
+            elements.append({"tag": "hr"})
+
+        while elements and elements[-1].get("tag") == "hr":
+            elements.pop()
+
+        return {
+            "msg_type": "interactive",
+            "card": {
+                "config": {"wide_screen_mode": True, "enable_forward": True},
+                "header": {
+                    "title": {"tag": "plain_text", "content": f"📊 需求分析专案报告（{_dt.now().strftime('%m/%d %H:%M')}）"},
+                    "template": "blue"
+                },
+                "elements": elements
+            }
+        }
+
+    def push_to_feishu(webhook_url, card_data):
+        """推送消息到飞书webhook"""
+        import json as _json
+        import urllib.request as _ureq
+        data = _json.dumps(card_data, ensure_ascii=False).encode('utf-8')
+        req = _ureq.Request(webhook_url, data=data, headers={'Content-Type': 'application/json'})
+        with _ureq.urlopen(req, timeout=15) as resp:
+            return _json.loads(resp.read().decode('utf-8'))
+
+    if 'feishu_report_preview' not in st.session_state:
+        st.session_state.feishu_report_preview = False
+    if preview_clicked:
+        st.session_state.feishu_report_preview = not st.session_state.feishu_report_preview
+
+    if st.session_state.feishu_report_preview:
+        report_data = generate_project_report_data()
+        if not report_data.get('overview'):
+            st.warning('暂无可用的数据，请确认已上传BW数据文件。')
+        else:
+            ov = report_data['overview']
+            total_projects = sum(len(r['专案列表']) for r in report_data.get('regions', []))
+            st.info(f'报告含 {len(report_data.get("regions", []))} 个行销公司、{total_projects} 个专案')
+
+            # 总体概览
+            st.markdown(f"""
+                <div style='background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%); border-radius: 8px; padding: 14px 18px; margin: 8px 0;'>
+                    <div style='font-size: 14px; font-weight: 600; color: white; margin-bottom: 8px;'>📊 总体概览</div>
+                    <div style='font-size: 12px; color: rgba(255,255,255,0.9); line-height: 1.8;'>
+                        总需求量: <b>{ov['总需求量']:,.0f}</b> | 总预算: <b>{ov['总预算销量']:,.0f}</b> | 月累排单: <b>{ov['月累排单']:,.0f}</b><br>
+                        预算达成率: <b>{ov['预算达成率']:.1f}%</b> | 月累排单达成率: <b>{ov['月累排单达成率']:.1f}%</b> | 较同期: <b style='color: {"#4ade80" if ov["较同期成长"] >= 0 else "#f87171"};'>{"▲" if ov["较同期成长"] >= 0 else "▼"}{ov['较同期成长']:+.1f}%</b>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+
+            # 各行销公司（专案 + 详细分析）
+            for region in report_data.get('regions', []):
+                st.markdown(f"""
+                    <div style='background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); border-radius: 8px; padding: 10px 16px; margin: 12px 0 6px 0;'>
+                        <span style='font-size: 15px; font-weight: 700; color: white;'>🏢 {region['行销公司']}</span>
+                        <span style='font-size: 12px; color: rgba(255,255,255,0.8); margin-left: 8px;'>共{len(region['专案列表'])}个专案</span>
+                    </div>
+                """, unsafe_allow_html=True)
+                # 各专案（含详细分析）
+                for proj in region['专案列表']:
+                    rate_color = '#16a34a' if proj['预算达成率'] >= 100 else ('#d97706' if proj['预算达成率'] >= 80 else '#dc2626')
+                    diff_val = proj.get('排单较需求差异量', 0)
+                    diff_color = '#16a34a' if diff_val >= 0 else '#dc2626'
+                    growth = proj['较同期成长']
+                    growth_color = '#16a34a' if growth >= 0 else '#dc2626'
+                    growth_arrow = '▲' if growth >= 0 else '▼'
+                    order_rate = proj.get('月累排单达成率', 0)
+                    order_rate_color = '#16a34a' if order_rate >= 100 else ('#d97706' if order_rate >= 80 else '#dc2626')
+                    st.markdown(f"""
+                        <div style='background: #f1f5f9; border-left: 4px solid {rate_color}; border-radius: 6px; padding: 10px 14px; margin: 8px 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);'>
+                            <div style='font-size: 15px; font-weight: 700; color: #1e293b;'>📌 {proj['专案名']} — 达成率 <span style='color: {rate_color};'>{proj['预算达成率']:.1f}%</span>  |  较同期 <span style='color: {growth_color};'>{growth_arrow}{growth:+.1f}%</span></div>
+                            <div style='font-size: 11px; color: #64748b; margin-top: 3px;'>需求量: {proj['需求量']:,.0f} | 预算: {proj['预算销量']:,.0f} | 排单: {proj['月累排单']:,.0f} | 排单较需求: <span style='color: {diff_color}; font-weight: 600;'>{diff_val:+,.0f}</span> | 排单达成率: <span style='color: {order_rate_color}; font-weight: 600;'>{order_rate:.1f}%</span></div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    # 该专案下的详细分析
+                    da = proj.get('明细分析', {})
+                    if da.get('营业部别'):
+                        st.markdown("<div style='font-size: 11px; font-weight: 600; color: #166534; margin: 6px 0 3px 12px;'>🏪 营业部别</div>", unsafe_allow_html=True)
+                        depts_html = ""
+                        for d in da['营业部别']:
+                            d_color = '#16a34a' if d['预算达成率'] >= 100 else ('#d97706' if d['预算达成率'] >= 80 else '#dc2626')
+                            depts_html += f"<span style='display:inline-block;margin:2px 4px;padding:2px 8px;background:#f0fdf4;border-radius:4px;font-size:10px;'>{d['营业部']} <b style='color:{d_color};'>{d['预算达成率']:.0f}%</b></span>"
+                        st.markdown(f"<div style='margin: 0 0 4px 12px;'>{depts_html}</div>", unsafe_allow_html=True)
+                    if da.get('容量别'):
+                        st.markdown("<div style='font-size: 11px; font-weight: 600; color: #c2410c; margin: 6px 0 3px 12px;'>📦 容量别</div>", unsafe_allow_html=True)
+                        for c in da['容量别']:
+                            diff_color = '#16a34a' if c['差异量'] >= 0 else '#dc2626'
+                            st.markdown(f"""
+                                <div style='background: #f8fafc; border-radius: 4px; padding: 4px 10px; margin: 2px 0 2px 12px; font-size: 10px; color: #475569; border-left: 2px solid #fdba74;'>
+                                    {c['容量']} — 需求: {c['需求量']:,.0f} | 排单: {c['月累排单']:,.0f} | 差异: <span style='color: {diff_color}; font-weight: 600;'>{c['差异量']:+,.0f}（{c['差异率']:+.1f}%）</span>
+                                </div>
+                            """, unsafe_allow_html=True)
+                    if da.get('口味明细'):
+                        st.markdown("<div style='font-size: 11px; font-weight: 600; color: #1e40af; margin: 6px 0 3px 12px;'>📈 口味明细</div>", unsafe_allow_html=True)
+                        for f in da['口味明细']:
+                            st.markdown(f"""
+                                <div style='background: #f8fafc; border-radius: 4px; padding: 4px 10px; margin: 2px 0 2px 12px; font-size: 10px; color: #475569; border-left: 2px solid #93c5fd;'>
+                                    {f['口味']} — 需求: {f['需求量']:,.0f} | 排单: {f['月累排单']:,.0f} | 预算达成: {f['预算达成率']:.1f}% | 较同期: {f['较同期成长']:+.1f}%
+                                </div>
+                            """, unsafe_allow_html=True)
+
+    if push_clicked:
+        if df.empty:
+            st.error('❌ 数据未加载，请先上传BW数据文件')
+        else:
+            with st.spinner('正在生成报告并推送至飞书...'):
+                try:
+                    report_data = generate_project_report_data()
+                    card_data = build_feishu_card(report_data)
+                    result = push_to_feishu(FEISHU_WEBHOOK_URL, card_data)
+                    if result.get('StatusCode') == 0 or result.get('code') == 0 or result.get('status') == 0:
+                        total_projects = sum(len(r['专案列表']) for r in report_data.get('regions', []))
+                        st.success(f'✅ 专案报告已推送至飞书！含 {len(report_data.get("regions", []))} 个行销公司、{total_projects} 个专案及各项总结数据')
+                    else:
+                        st.error(f"❌ 飞书推送失败: {result}")
+                except Exception as e:
+                    st.error(f'❌ 推送异常: {str(e)}')
+
     col1, col2, col3, col4, col5, col6, col7, col8, col9, col10 = st.columns([0.8, 0.8, 0.9, 0.9, 0.9, 0.8, 1.0, 0.7, 0.9, 0.9])
 
     with col1:
@@ -1110,52 +1573,56 @@ if st.session_state.current_page == '需求分析':
         dept = st.selectbox('营业部', dept_options, key='dept')
 
     with col3:
+        # 专案选项来自BW对应关系表
         project_options = ['全部'] + list(project_map.keys())
         project = st.selectbox('专案', project_options, key='project')
 
     with col4:
+        # 3.0新品选项来自BW对应关系表
         product30_options = ['全部'] + list(product30_map.keys())
         product30 = st.selectbox('3.0新品', product30_options, key='product30')
 
     with col5:
+        # 2.0产品选项来自BW对应关系表
         product20_options = ['全部'] + list(product20_map.keys())
         product20 = st.selectbox('2.0产品', product20_options, key='product20')
 
+    # 筛选BW数据(用于数据展示和内包装选项)
     filtered_for_flavor = df.copy()
     if region != '全部':
         filtered_for_flavor = filtered_for_flavor[filtered_for_flavor['营业部'].isin(REGION_DEPT_MAP[region])]
     if dept != '全部':
         filtered_for_flavor = filtered_for_flavor[filtered_for_flavor['营业部'] == dept]
-
-    material_flavors = material_map.get('flavors', [])
-    material_capacities = material_map.get('capacities', [])
-    material_packages = material_map.get('packages', [])
-
-    if material_flavors:
-        available_flavors = sorted(set(filtered_for_flavor['口味'].unique()) & set(material_flavors))
-    else:
-        flavor_stats = filtered_for_flavor.groupby('口味').agg({
-            '需求量': 'sum',
-            '月累排单': 'sum',
-            '去年同期销量': 'sum',
-            '预算销量': 'sum'
-        }).reset_index()
-        available_flavors = flavor_stats[
-            (flavor_stats['需求量'] > 0) | 
-            (flavor_stats['月累排单'] > 0) | 
-            (flavor_stats['去年同期销量'] > 0) | 
-            (flavor_stats['预算销量'] > 0)
-        ]['口味'].tolist()
-    
     if project != '全部':
-        available_flavors = [f for f in available_flavors if f in project_map.get(project, [])]
+        filtered_for_flavor = filtered_for_flavor[filtered_for_flavor['口味'].isin(project_map[project])]
     if product30 != '全部':
-        available_flavors = [f for f in available_flavors if f in product30_map.get(product30, [])]
+        filtered_for_flavor = filtered_for_flavor[filtered_for_flavor['口味'].isin(product30_map[product30])]
     if product20 != '全部':
-        available_flavors = [f for f in available_flavors if f in product20_map.get(product20, [])]
+        filtered_for_flavor = filtered_for_flavor[filtered_for_flavor['口味'].isin(product20_map[product20])]
 
-    available_flavors = ['全部'] + sorted(available_flavors)
-    
+    # 根据专案/3.0新品/2.0产品计算有效口味集合(交集)
+    valid_flavors = None
+    if project != '全部':
+        valid_flavors = set(str(f) for f in project_map.get(project, []))
+    if product30 != '全部':
+        temp = set(str(f) for f in product30_map.get(product30, []))
+        valid_flavors = temp if valid_flavors is None else (valid_flavors & temp)
+    if product20 != '全部':
+        temp = set(str(f) for f in product20_map.get(product20, []))
+        valid_flavors = temp if valid_flavors is None else (valid_flavors & temp)
+
+    # 口味选项来自出货数据, 根据专案/3.0新品/2.0产品联动筛选
+    if not df_2026_filters.empty and '口味' in df_2026_filters.columns:
+        all_flavors_2026 = sorted(df_2026_filters['口味'].dropna().astype(str).unique())
+    else:
+        all_flavors_2026 = sorted(df['口味'].dropna().astype(str).unique()) if '口味' in df.columns else []
+
+    # 如果有专案/3.0新品/2.0产品筛选, 只显示对应的口味
+    if valid_flavors is not None:
+        all_flavors_2026 = [f for f in all_flavors_2026 if f in valid_flavors]
+
+    available_flavors = ['全部'] + all_flavors_2026
+
     if 'flavor' in st.session_state and st.session_state['flavor'] != '全部' and st.session_state['flavor'] not in available_flavors:
         st.session_state['flavor'] = '全部'
 
@@ -1163,35 +1630,38 @@ if st.session_state.current_page == '需求分析':
         flavor = st.selectbox('口味', available_flavors, key='flavor')
 
     with col6:
-        if material_map.get('universal_to_attrs') and flavor != '全部':
-            capacity_set = set()
-            for universal, attrs in material_map['universal_to_attrs'].items():
-                flavors = attrs.get('flavors', [])
-                if flavor in flavors:
-                    capacities = attrs.get('capacities', [])
-                    capacity_set.update(capacities)
-            available_capacities = ['全部'] + sorted([c for c in capacity_set if c])
-        elif material_capacities:
-            available_capacities = ['全部'] + sorted(set(filtered_for_flavor['容量'].unique()) & set(material_capacities))
+        # 容量选项来自出货数据, 根据专案/3.0新品/2.0产品和口味联动
+        if not df_2026_filters.empty and '容量' in df_2026_filters.columns:
+            cap_data = df_2026_filters
+            # 先按有效口味筛选(专案/3.0新品/2.0产品)
+            if valid_flavors is not None:
+                cap_data = cap_data[cap_data['口味'].astype(str).isin(valid_flavors)]
+            # 再按选择的口味筛选
+            if flavor != '全部':
+                cap_data = cap_data[cap_data['口味'].astype(str) == flavor]
+            all_capacities = sorted(cap_data['容量'].dropna().astype(str).unique())
         else:
-            available_capacities = ['全部'] + sorted(filtered_for_flavor['容量'].unique())
+            if flavor != '全部' and '容量' in filtered_for_flavor.columns:
+                flavor_data = filtered_for_flavor[filtered_for_flavor['口味'] == flavor]
+                all_capacities = sorted(flavor_data['容量'].dropna().astype(str).unique())
+            elif '容量' in filtered_for_flavor.columns:
+                all_capacities = sorted(filtered_for_flavor['容量'].dropna().astype(str).unique())
+            else:
+                all_capacities = []
+        available_capacities = ['全部'] + all_capacities
         if 'capacity' in st.session_state and st.session_state['capacity'] != '全部' and st.session_state['capacity'] not in available_capacities:
             st.session_state['capacity'] = '全部'
         capacity = st.selectbox('容量', available_capacities, key='capacity')
 
     with col8:
-        if material_map.get('universal_to_attrs') and flavor != '全部':
-            package_set = set()
-            for universal, attrs in material_map['universal_to_attrs'].items():
-                flavors = attrs.get('flavors', [])
-                if flavor in flavors:
-                    packages = attrs.get('packages', [])
-                    package_set.update(packages)
-            available_packages = ['全部'] + sorted([p for p in package_set if p])
-        elif material_packages:
-            available_packages = ['全部'] + sorted(set(filtered_for_flavor.get('内包装', []).unique()) & set(material_packages))
+        # 内包装选项(从BW数据获取)
+        if flavor != '全部' and '内包装' in filtered_for_flavor.columns:
+            flavor_data = filtered_for_flavor[filtered_for_flavor['口味'] == flavor]
+            available_packages = ['全部'] + sorted(flavor_data['内包装'].dropna().astype(str).unique())
+        elif '内包装' in filtered_for_flavor.columns:
+            available_packages = ['全部'] + sorted(filtered_for_flavor['内包装'].dropna().astype(str).unique())
         else:
-            available_packages = ['全部'] + sorted(filtered_for_flavor.get('内包装', []).unique())
+            available_packages = ['全部']
         if 'package' in st.session_state and st.session_state['package'] != '全部' and st.session_state['package'] not in available_packages:
             st.session_state['package'] = '全部'
         package = st.selectbox('内包装', available_packages, key='package')
@@ -2480,8 +2950,14 @@ elif st.session_state.current_page == '历史销量':
         if uploaded_file is not None and st.session_state.get('history_data_updated'):
             st.cache_data.clear()
             
-            import time
-            df_2026_actual, df_2025_actual, df_2026_budget, material_flavor_map = cached_load_history_data(uploaded_file, time.time())
+            # 保存上传文件到源文件（持久化，关闭浏览器后仍可恢复）
+            with open('2026销量.xlsx', 'wb') as f:
+                f.write(uploaded_file.getbuffer())
+            uploaded_file.seek(0)
+            
+            import os
+            file_mod_time = get_file_modified_time('2026销量.xlsx')
+            df_2026_actual, df_2025_actual, df_2026_budget, material_flavor_map = cached_load_history_data('2026销量.xlsx', file_mod_time)
             save_data(df_2026_actual, df_2025_actual, df_2026_budget, material_flavor_map)
             
             if 'history_upload_counter' not in st.session_state:
@@ -2494,7 +2970,7 @@ elif st.session_state.current_page == '历史销量':
             st.success(f"数据已刷新并保存！({st.session_state['history_last_upload_time']})")
 
     material_col = None
-    for col in ['物料号', '物料', '物料编号', '产品号', '产品编号', 'ItemCode', 'Item']:
+    for col in ['物料号', '全国通用物料', '物料', '物料编号', '产品号', '产品编号', 'ItemCode', 'Item']:
         if col in df_2026_actual.columns:
             material_col = col
             break
@@ -2507,33 +2983,25 @@ elif st.session_state.current_page == '历史销量':
     all_materials_budget = df_2026_budget[material_col].unique() if not df_2026_budget.empty and material_col else []
     all_materials = set(all_materials_2026) | set(all_materials_2025) | set(all_materials_budget)
     
+    # 从2026销量表"2026年实际销量"sheet获取口味/容量/内包装
     available_flavors = []
     available_capacities = []
     available_packages = []
-    
-    material_to_universal = material_map.get('material_to_universal', {})
-    universal_to_attrs = material_map.get('universal_to_attrs', {})
-    
-    print(f"物料映射状态: material_to_universal大小={len(material_to_universal)}, universal_to_attrs大小={len(universal_to_attrs)}")
-    
-    if material_map.get('flavors'):
-        available_flavors = material_map['flavors']
-        print(f"从物料对应关系获取口味: {available_flavors}")
-    elif '口味' in df.columns:
-        available_flavors = sorted(df['口味'].unique())
-        print(f"从主数据获取口味: {available_flavors}")
-    
-    if material_map.get('capacities'):
-        available_capacities = material_map['capacities']
-        print(f"从物料对应关系获取容量: {available_capacities}")
-    elif '容量' in df.columns:
-        available_capacities = sorted(df['容量'].unique())
-    
-    if material_map.get('packages'):
-        available_packages = material_map['packages']
-        print(f"从物料对应关系获取内包装: {available_packages}")
-    elif '内包装' in df.columns:
-        available_packages = sorted(df['内包装'].unique())
+
+    if not df_2026_actual.empty:
+        if '口味' in df_2026_actual.columns:
+            available_flavors = sorted(df_2026_actual['口味'].dropna().astype(str).unique())
+        if '容量' in df_2026_actual.columns:
+            available_capacities = sorted(df_2026_actual['容量'].dropna().astype(str).unique())
+        if '内包装' in df_2026_actual.columns:
+            available_packages = sorted(df_2026_actual['内包装'].dropna().astype(str).unique())
+    # 回退到BW数据
+    if not available_flavors and '口味' in df.columns:
+        available_flavors = sorted(df['口味'].dropna().astype(str).unique())
+    if not available_capacities and '容量' in df.columns:
+        available_capacities = sorted(df['容量'].dropna().astype(str).unique())
+    if not available_packages and '内包装' in df.columns:
+        available_packages = sorted(df['内包装'].dropna().astype(str).unique())
 
     col1, col2, col3, col4, col5, col6, col7, col8 = st.columns(8)
 
@@ -2562,48 +3030,83 @@ elif st.session_state.current_page == '历史销量':
     with col5:
         history_product20 = st.selectbox('2.0产品', ['全部'] + list(product20_map.keys()), key='history_product20')
 
-    filtered_flavors = available_flavors.copy()
-    if project_map and history_project != '全部':
-        filtered_flavors = [f for f in filtered_flavors if f in project_map.get(history_project, [])]
-    if product30_map and history_product30 != '全部':
-        filtered_flavors = [f for f in filtered_flavors if f in product30_map.get(history_product30, [])]
-    if product20_map and history_product20 != '全部':
-        filtered_flavors = [f for f in filtered_flavors if f in product20_map.get(history_product20, [])]
+    # 根据专案/3.0新品/2.0产品计算有效口味集合(交集)
+    history_valid_flavors = None
+    if history_project != '全部':
+        history_valid_flavors = set(str(f) for f in project_map.get(history_project, []))
+    if history_product30 != '全部':
+        temp = set(str(f) for f in product30_map.get(history_product30, []))
+        history_valid_flavors = temp if history_valid_flavors is None else (history_valid_flavors & temp)
+    if history_product20 != '全部':
+        temp = set(str(f) for f in product20_map.get(history_product20, []))
+        history_valid_flavors = temp if history_valid_flavors is None else (history_valid_flavors & temp)
+
+    # 口味选项来自2026年实际销量, 根据专案/3.0新品/2.0产品联动筛选
+    if not df_2026_actual.empty and '口味' in df_2026_actual.columns:
+        all_history_flavors = sorted(df_2026_actual['口味'].dropna().astype(str).unique())
+    else:
+        all_history_flavors = sorted(df['口味'].dropna().astype(str).unique()) if '口味' in df.columns else []
+
+    # 如果有专案/3.0新品/2.0产品筛选, 只显示对应的口味
+    if history_valid_flavors is not None:
+        all_history_flavors = [f for f in all_history_flavors if f in history_valid_flavors]
+
+    available_flavor_opts = ['全部'] + all_history_flavors
+    if 'history_flavor_new' in st.session_state and st.session_state['history_flavor_new'] != '全部' and st.session_state['history_flavor_new'] not in available_flavor_opts:
+        st.session_state['history_flavor_new'] = '全部'
 
     with col6:
-        history_flavor = st.selectbox('口味', ['全部'] + filtered_flavors, key='history_flavor_new')
+        history_flavor = st.selectbox('口味', available_flavor_opts, key='history_flavor_new')
 
-    dynamic_capacities = available_capacities
-    active_flavors = []
-    if history_flavor != '全部':
-        active_flavors = [history_flavor]
-    elif filtered_flavors:
-        active_flavors = filtered_flavors
-    
-    if active_flavors and material_map.get('material_to_universal') and material_map.get('universal_to_attrs'):
-        capacity_set = set()
-        for universal, attrs in material_map['universal_to_attrs'].items():
-            flavors = attrs.get('flavors', [])
-            if any(f in active_flavors for f in flavors):
-                capacities = attrs.get('capacities', [])
-                capacity_set.update(capacities)
-        dynamic_capacities = sorted([c for c in capacity_set if c])
+    # 容量选项：从2026年实际销量, 根据专案/3.0新品/2.0产品和口味联动
+    if not df_2026_actual.empty and '容量' in df_2026_actual.columns:
+        cap_data = df_2026_actual
+        # 先按有效口味筛选(专案/3.0新品/2.0产品)
+        if history_valid_flavors is not None:
+            cap_data = cap_data[cap_data['口味'].astype(str).isin(history_valid_flavors)]
+        # 再按选择的口味筛选
+        if history_flavor != '全部':
+            cap_data = cap_data[cap_data['口味'].astype(str) == history_flavor]
+        dynamic_capacities = sorted(cap_data['容量'].dropna().astype(str).unique())
+    else:
+        dynamic_capacities = []
+
+    available_capacity_opts = ['全部'] + dynamic_capacities
+    if 'history_capacity_new' in st.session_state and st.session_state['history_capacity_new'] != '全部' and st.session_state['history_capacity_new'] not in available_capacity_opts:
+        st.session_state['history_capacity_new'] = '全部'
 
     with col7:
-        history_capacity = st.selectbox('容量', ['全部'] + dynamic_capacities, key='history_capacity_new')
+        history_capacity = st.selectbox('容量', available_capacity_opts, key='history_capacity_new')
+
+    # 内包装选项：根据口味从过滤后的数据动态获取(参考需求分析看板)
+    # 先按行销区域/营业部/专案/3.0新品/2.0产品过滤数据
+    filtered_for_attrs = df_2026_actual.copy() if not df_2026_actual.empty else df_2026_actual
+    if not filtered_for_attrs.empty:
+        if history_region != '全部' and '营业部' in filtered_for_attrs.columns:
+            filtered_for_attrs = filtered_for_attrs[filtered_for_attrs['营业部'].isin(REGION_DEPT_MAP[history_region])]
+        if history_dept != '全部' and '营业部' in filtered_for_attrs.columns:
+            filtered_for_attrs = filtered_for_attrs[filtered_for_attrs['营业部'] == history_dept]
+        if history_project != '全部' and project_map and '口味' in filtered_for_attrs.columns:
+            filtered_for_attrs = filtered_for_attrs[filtered_for_attrs['口味'].astype(str).isin([str(f) for f in project_map.get(history_project, [])])]
+        if history_product30 != '全部' and product30_map and '口味' in filtered_for_attrs.columns:
+            filtered_for_attrs = filtered_for_attrs[filtered_for_attrs['口味'].astype(str).isin([str(f) for f in product30_map.get(history_product30, [])])]
+        if history_product20 != '全部' and product20_map and '口味' in filtered_for_attrs.columns:
+            filtered_for_attrs = filtered_for_attrs[filtered_for_attrs['口味'].astype(str).isin([str(f) for f in product20_map.get(history_product20, [])])]
 
     dynamic_packages = available_packages
-    if active_flavors and material_map.get('material_to_universal') and material_map.get('universal_to_attrs'):
-        package_set = set()
-        for universal, attrs in material_map['universal_to_attrs'].items():
-            flavors = attrs.get('flavors', [])
-            if any(f in active_flavors for f in flavors):
-                packages = attrs.get('packages', [])
-                package_set.update(packages)
-        dynamic_packages = sorted([p for p in package_set if p])
+    if history_flavor != '全部' and not filtered_for_attrs.empty and '口味' in filtered_for_attrs.columns and '内包装' in filtered_for_attrs.columns:
+        flavor_data = filtered_for_attrs[filtered_for_attrs['口味'].astype(str) == history_flavor]
+        if not flavor_data.empty:
+            dynamic_packages = sorted(flavor_data['内包装'].dropna().astype(str).unique())
+    elif not filtered_for_attrs.empty and '内包装' in filtered_for_attrs.columns:
+        dynamic_packages = sorted(filtered_for_attrs['内包装'].dropna().astype(str).unique())
+
+    available_package_opts = ['全部'] + dynamic_packages
+    if 'history_package_new' in st.session_state and st.session_state['history_package_new'] != '全部' and st.session_state['history_package_new'] not in available_package_opts:
+        st.session_state['history_package_new'] = '全部'
 
     with col8:
-        history_package = st.selectbox('内包装', ['全部'] + dynamic_packages, key='history_package_new')
+        history_package = st.selectbox('内包装', available_package_opts, key='history_package_new')
     
     all_months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
     
@@ -2685,60 +3188,15 @@ elif st.session_state.current_page == '历史销量':
     
     selected_months = st.session_state.history_month_multi
 
-    flavor_to_materials = precompute_flavor_materials(material_map)
-    capacity_to_materials = precompute_capacity_materials(material_map)
-    package_to_materials = precompute_package_materials(material_map)
+    # 物料对应关系已取消，通过数据自身列关联
+    flavor_to_materials = {}
+    capacity_to_materials = {}
+    package_to_materials = {}
 
-    material_to_universal = material_map.get('material_to_universal', {})
-    universal_to_attrs = material_map.get('universal_to_attrs', {})
-
-    def add_attrs_from_material(df, material_col, material_to_universal, universal_to_attrs):
-        if df.empty or material_col is None or material_col not in df.columns:
-            return df
-        
-        df_copy = df.copy()
-        
-        material_str_series = df_copy[material_col].astype(str).str.strip()
-        
-        attr_cache = {}
-        for material_str in material_str_series.unique():
-            if pd.isna(material_str) or material_str == 'nan':
-                attr_cache[material_str] = {'flavors': None, 'capacities': None, 'packages': None}
-                continue
-            
-            result = {'flavors': None, 'capacities': None, 'packages': None}
-            
-            if material_str in material_to_universal:
-                universal = material_to_universal[material_str]
-                if universal in universal_to_attrs:
-                    attrs = universal_to_attrs[universal]
-                    for attr_name in ['flavors', 'capacities', 'packages']:
-                        attr_list = attrs.get(attr_name, [])
-                        if attr_list:
-                            result[attr_name] = attr_list[0]
-            else:
-                for key in material_to_universal:
-                    if key in material_str or material_str in key:
-                        universal = material_to_universal[key]
-                        if universal in universal_to_attrs:
-                            attrs = universal_to_attrs[universal]
-                            for attr_name in ['flavors', 'capacities', 'packages']:
-                                attr_list = attrs.get(attr_name, [])
-                                if attr_list:
-                                    result[attr_name] = attr_list[0]
-                            break
-            
-            attr_cache[material_str] = result
-        
-        df_copy['口味'] = material_str_series.map(lambda x: attr_cache.get(x, {}).get('flavors'))
-        df_copy['容量'] = material_str_series.map(lambda x: attr_cache.get(x, {}).get('capacities'))
-        df_copy['内包装'] = material_str_series.map(lambda x: attr_cache.get(x, {}).get('packages'))
-        
-        return df_copy
-
-    df_2026_actual_with_attrs = add_attrs_from_material(df_2026_actual, material_col, material_to_universal, universal_to_attrs)
-    df_2025_actual_with_attrs = add_attrs_from_material(df_2025_actual, material_col, material_to_universal, universal_to_attrs)
-    df_2026_budget_with_attrs = add_attrs_from_material(df_2026_budget, material_col, material_to_universal, universal_to_attrs)
+    # 数据已包含口味/容量/内包装列，无需从物料映射补全
+    df_2026_actual_with_attrs = df_2026_actual.copy() if not df_2026_actual.empty else df_2026_actual
+    df_2025_actual_with_attrs = df_2025_actual.copy() if not df_2025_actual.empty else df_2025_actual
+    df_2026_budget_with_attrs = df_2026_budget.copy() if not df_2026_budget.empty else df_2026_budget
 
     filtered_2026 = filter_data(df_2026_actual_with_attrs, history_region, history_dept, selected_months, history_flavor, history_capacity, history_package, history_project, history_product30, history_product20, REGION_DEPT_MAP, flavor_to_materials, capacity_to_materials, package_to_materials, project_map, product30_map, product20_map, material_col)
     filtered_2025 = filter_data(df_2025_actual_with_attrs, history_region, history_dept, selected_months, history_flavor, history_capacity, history_package, history_project, history_product30, history_product20, REGION_DEPT_MAP, flavor_to_materials, capacity_to_materials, package_to_materials, project_map, product30_map, product20_map, material_col)
@@ -2799,7 +3257,7 @@ elif st.session_state.current_page == '历史销量':
     if not df_2026_budget.empty:
         for col in df_2026_budget.columns:
             col_str = str(col)
-            if '预算' in col_str or 'budget' in col_str.lower():
+            if '预算' in col_str or 'budget' in col_str.lower() or '销量' in col_str:
                 budget_col = col
                 break
         if budget_col is None:
@@ -2932,9 +3390,13 @@ elif st.session_state.current_page == '历史销量':
         
         if has_capacity_2026 and has_capacity_2025 and sales_col and sales_col in filtered_2026_with_attrs.columns and sales_col in filtered_2025_with_attrs.columns:
             capacity_growth_df = pd.DataFrame()
-            capacity_2026 = filtered_2026_with_attrs[filtered_2026_with_attrs['容量'].notna()].groupby('容量')[sales_col].sum().reset_index()
-            capacity_2025 = filtered_2025_with_attrs[filtered_2025_with_attrs['容量'].notna()].groupby('容量')[sales_col].sum().reset_index()
-            
+            capacity_2026 = filtered_2026_with_attrs[filtered_2026_with_attrs['容量'].notna()].groupby('容量', as_index=False)[sales_col].sum()
+            capacity_2025 = filtered_2025_with_attrs[filtered_2025_with_attrs['容量'].notna()].groupby('容量', as_index=False)[sales_col].sum()
+
+            # 统一容量列类型为字符串,避免int64与object合并报错
+            capacity_2026['容量'] = capacity_2026['容量'].astype(str)
+            capacity_2025['容量'] = capacity_2025['容量'].astype(str)
+
             capacity_growth_df = pd.merge(capacity_2026, capacity_2025, on='容量', suffixes=('_2026', '_2025'))
             capacity_growth_df = capacity_growth_df[capacity_growth_df['容量'].notna() & (capacity_growth_df['容量'] != '')]
             capacity_growth_df['成长率'] = ((capacity_growth_df[f'{sales_col}_2026'] - capacity_growth_df[f'{sales_col}_2025']) / capacity_growth_df[f'{sales_col}_2025'] * 100).fillna(0)
@@ -3023,14 +3485,22 @@ elif st.session_state.current_page == '历史销量':
             actual_data = filtered_2026_with_attrs[filtered_2026_with_attrs['容量'].notna()]
             budget_data = filtered_budget_with_attrs[filtered_budget_with_attrs['容量'].notna()]
             
-            capacity_actual = actual_data.groupby('容量')[sales_col].sum().reset_index()
-            capacity_budget = budget_data.groupby('容量')[budget_col].sum().reset_index()
-            
+            capacity_actual = actual_data.groupby('容量', as_index=False)[sales_col].sum()
+            capacity_budget = budget_data.groupby('容量', as_index=False)[budget_col].sum()
+
+            # 统一容量列类型为字符串,避免int64与object合并报错
+            capacity_actual['容量'] = capacity_actual['容量'].astype(str)
+            capacity_budget['容量'] = capacity_budget['容量'].astype(str)
+
             capacity_budget_df = pd.merge(capacity_actual, capacity_budget, on='容量', suffixes=('_actual', '_budget'))
             capacity_budget_df = capacity_budget_df[capacity_budget_df['容量'].notna() & (capacity_budget_df['容量'] != '')]
             
             actual_col = f'{sales_col}_actual' if f'{sales_col}_actual' in capacity_budget_df.columns else sales_col
             budget_col_merged = f'{budget_col}_budget' if f'{budget_col}_budget' in capacity_budget_df.columns else budget_col
+            
+            # 确保数值类型,避免float与str相除报错
+            capacity_budget_df[actual_col] = pd.to_numeric(capacity_budget_df[actual_col], errors='coerce')
+            capacity_budget_df[budget_col_merged] = pd.to_numeric(capacity_budget_df[budget_col_merged], errors='coerce')
             
             capacity_budget_df['达成率'] = (capacity_budget_df[actual_col] / capacity_budget_df[budget_col_merged] * 100).fillna(0)
             capacity_budget_df = capacity_budget_df[~capacity_budget_df['达成率'].isin([float('inf'), float('-inf')])]
@@ -3181,6 +3651,8 @@ elif st.session_state.current_page == '历史销量':
             monthly_2025 = monthly_2025.rename(columns={'销量': sales_col})
     
     if '月份' in filtered_budget_for_compare.columns:
+        # 确保预算列为数值类型,避免str类型求和与相除报错
+        filtered_budget_for_compare[budget_col] = pd.to_numeric(filtered_budget_for_compare[budget_col], errors='coerce')
         monthly_budget = filtered_budget_for_compare.groupby('月份')[budget_col].sum().reindex(months_order, fill_value=0).reset_index()
     else:
         monthly_budget = pd.DataFrame({'月份': months_order, budget_col: [0]*12})
@@ -3461,6 +3933,16 @@ elif st.session_state.current_page == '产量一览':
         </div>
     """, unsafe_allow_html=True)
 
+    # 自动加载已有产量数据文件（无需手动上传）
+    if 'output_data' not in st.session_state or st.session_state.output_data is None or st.session_state.output_data.empty:
+        try:
+            if os.path.exists('产量数据.xlsx'):
+                auto_df = pd.read_excel('产量数据.xlsx')
+                if not auto_df.empty:
+                    st.session_state.output_data = auto_df
+        except Exception:
+            pass
+
     with st.expander('📊 上传产量数据', expanded=False):
         uploaded_file = st.file_uploader('选择Excel文件（需包含2025年产量和2026年产量工作表）', type=['xlsx', 'xls'], key='output_upload')
         
@@ -3472,24 +3954,18 @@ elif st.session_state.current_page == '产量一览':
                 combined_df = pd.DataFrame()
                 
                 for sheet in sheets:
-                    df = pd.read_excel(xls, sheet_name=sheet)
+                    df_sheet = pd.read_excel(xls, sheet_name=sheet)
                     if '2025' in str(sheet):
-                        df['年份'] = 2025
+                        df_sheet['年份'] = 2025
                     elif '2026' in str(sheet):
-                        df['年份'] = 2026
-                    combined_df = pd.concat([combined_df, df], ignore_index=True)
+                        df_sheet['年份'] = 2026
+                    combined_df = pd.concat([combined_df, df_sheet], ignore_index=True)
                 
-                st.success(f'✅ 文件上传成功！读取了 {len(sheets)} 个工作表')
-                
-                if 'output_data' not in st.session_state:
-                    st.session_state.output_data = combined_df
-                else:
-                    st.session_state.output_data = pd.concat([st.session_state.output_data, combined_df], ignore_index=True)
-                
-                if st.button('💾 保存数据', key='save_output'):
-                    save_path = '产量数据.xlsx'
-                    st.session_state.output_data.to_excel(save_path, index=False)
-                    st.success(f'✅ 数据已保存到 {save_path}')
+                # 自动保存到文件（持久化，关闭浏览器后仍可恢复）
+                save_path = '产量数据.xlsx'
+                combined_df.to_excel(save_path, index=False)
+                st.session_state.output_data = combined_df
+                st.success(f'✅ 文件上传成功！读取了 {len(sheets)} 个工作表，已自动保存到 {save_path}')
             
             except Exception as e:
                 st.error(f'❌ 上传失败: {str(e)}')
@@ -4182,6 +4658,67 @@ elif st.session_state.current_page == '物料对应关系':
                 st.rerun()
             else:
                 st.error('请填写全国通用物料和物料号')
+        
+        st.markdown("<hr style='margin: 16px 0; border: none; border-top: 1px dashed #cbd5e1;'>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 8px;'>📋 批量输入</div>", unsafe_allow_html=True)
+        st.caption("每行一条，列之间用 Tab 或逗号分隔（可直接从 Excel 粘贴）")
+        st.caption("格式：全国通用物料 | 物料号 | 物料名称 | 对应类型 | 备注")
+        
+        batch_text = st.text_area(
+            '批量输入',
+            placeholder='成品-PET500*15入冰红茶\t10012345\t冰红茶500ml\t口味\t\n成品-PET500*15入柠檬\t10012346\t柠檬500ml\t口味\t',
+            height=150,
+            key='batch_mapping_input',
+            label_visibility='collapsed'
+        )
+        
+        batch_col1, batch_col2 = st.columns([1, 2])
+        with batch_col1:
+            batch_default_type = st.selectbox('默认对应类型', ['口味', '容量', '规格', '包装', '其他'], key='batch_default_type', label_visibility='collapsed')
+        with batch_col2:
+            if st.button('📋 批量添加', use_container_width=True, key='btn_batch_add'):
+                if batch_text.strip():
+                    lines = batch_text.strip().split('\n')
+                    new_rows = []
+                    errors = 0
+                    for line in lines:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        if '\t' in line:
+                            parts = [p.strip() for p in line.split('\t')]
+                        elif ',' in line:
+                            parts = [p.strip() for p in line.split(',')]
+                        else:
+                            parts = [line]
+                        while len(parts) < 5:
+                            parts.append('')
+                        if not parts[3].strip():
+                            parts[3] = batch_default_type
+                        if parts[0] and parts[1]:
+                            new_rows.append({
+                                '全国通用物料': parts[0],
+                                '物料号': parts[1],
+                                '物料名称': parts[2],
+                                '对应类型': parts[3],
+                                '备注': parts[4]
+                            })
+                        else:
+                            errors += 1
+                    if new_rows:
+                        new_df = pd.DataFrame(new_rows)
+                        st.session_state.material_data = pd.concat([st.session_state.material_data, new_df], ignore_index=True)
+                        with open(material_cache_file, 'wb') as f:
+                            pickle.dump(st.session_state.material_data, f)
+                        msg = f'✅ 批量添加成功！共添加 {len(new_rows)} 条'
+                        if errors > 0:
+                            msg += f'，跳过 {errors} 条无效行'
+                        st.success(msg)
+                        st.rerun()
+                    else:
+                        st.error('未找到有效数据行。每行至少需要：全国通用物料 和 物料号')
+                else:
+                    st.error('请输入对应关系数据')
         
         st.markdown("</div>", unsafe_allow_html=True)
     
@@ -5579,3 +6116,126 @@ elif st.session_state.current_page == '大修进度':
                     os.remove(DATA_FILE)
                 st.session_state.edited_maintenance_df = df.copy()
                 st.rerun()
+
+# ==================== 页面8：系统设置 ====================
+elif st.session_state.current_page == '系统设置':
+    import os
+    from datetime import datetime
+
+    st.markdown("""
+        <div class='header-card'>
+            <div class='header-title'>⚙️ 系统设置</div>
+            <div class='header-subtitle'>数据文件管理 · 缓存状态 · 系统信息</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # 数据文件状态
+    st.subheader("📂 数据文件状态")
+    data_files = [
+        ('BW数据.xlsx', '需求/销量/预算数据', '需求分析、首页概览'),
+        ('产量数据.xlsx', '产量数据', '产量一览页面'),
+        ('天津、河北行销达成.xlsx', '营业额数据', '营业额分析页面'),
+        ('2026销量.xlsx', '2026年销量数据', '历史销量页面'),
+        ('预算执行分析-天津调出-单文件版.html', '调出分析报告', '调出分析页面'),
+    ]
+
+    for fname, desc, usage in data_files:
+        col_a, col_b, col_c = st.columns([3, 4, 3])
+        with col_a:
+            if os.path.exists(fname):
+                mtime = datetime.fromtimestamp(os.path.getmtime(fname)).strftime('%Y-%m-%d %H:%M')
+                size = os.path.getsize(fname) / 1024
+                st.success(f"✅ {fname}")
+                st.caption(f"{size:.1f} KB · 更新于 {mtime}")
+            else:
+                st.error(f"⚠️ {fname}")
+                st.caption("文件不存在")
+        with col_b:
+            st.markdown(f"**{desc}**")
+        with col_c:
+            st.caption(f"用于: {usage}")
+
+    st.markdown("---")
+
+    # 缓存管理
+    st.subheader("🗄️ 缓存管理")
+    col_cache1, col_cache2 = st.columns(2)
+    with col_cache1:
+        st.info("Streamlit 缓存用于加速数据加载。如数据更新后页面未刷新，请清除缓存。")
+    with col_cache2:
+        if st.button("🗑️ 清除所有缓存", type="secondary", use_container_width=True):
+            st.cache_data.clear()
+            # 仅删除历史销量缓存，不删除用户编辑数据
+            for cache_file in ['history_data_cache.pkl']:
+                if os.path.exists(cache_file):
+                    os.remove(cache_file)
+            if 'output_data' in st.session_state:
+                del st.session_state['output_data']
+            st.session_state.last_refresh = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            st.success("✅ 所有缓存已清除！")
+            st.rerun()
+
+    st.markdown("---")
+
+    # 系统信息
+    st.subheader("ℹ️ 系统信息")
+    sys_col1, sys_col2 = st.columns(2)
+    with sys_col1:
+        st.markdown(f"""
+        - **系统名称**: 产销协调系统
+        - **版本**: 3.0
+        - **框架**: Streamlit
+        - **部署**: Streamlit Community Cloud
+        """)
+    with sys_col2:
+        st.markdown(f"""
+        - **数据库**: Excel 文件（本地存储）
+        - **图表引擎**: Plotly
+        - **Python**: {__import__('sys').version.split()[0]}
+        - **当前时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+        """)
+
+# ==================== 页面9：关于系统 ====================
+elif st.session_state.current_page == '关于系统':
+    st.markdown("""
+        <div class='header-card'>
+            <div class='header-title'>ℹ️ 关于系统</div>
+            <div class='header-subtitle'>产销协调系统 · 功能介绍与使用说明</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    ### 📋 系统简介
+
+    产销协调系统是面向饮料制造工厂产销协调环节的数据可视化平台，
+    整合需求分析、历史销量、产量、营业额、物料对应、调出分析及大修进度等模块，
+    帮助管理层快速掌握产销全链路数据。
+
+    ### 🧭 功能模块
+
+    | 模块 | 功能说明 |
+    |------|---------|
+    | 🏠 首页概览 | 全局 KPI 总览、月度趋势、区域占比、快捷导航 |
+    | 📊 需求分析看板 | 出货需求、预算达成、同期对比，支持多维度筛选 |
+    | 📈 历史销量 | 2025/2026 年销量趋势、容量与口味分析 |
+    | 🏭 产量一览 | 产量数据管理、工厂/月份筛选、同比分析 |
+    | 💰 营业额分析 | 天津/河北行销公司营业额预算达成分析 |
+    | 🔗 物料对应关系 | 物料映射关系维护与管理 |
+    | 📋 调出分析 | 预算执行分析（天津调出） |
+    | 🔧 大修进度 | 产线大修甘特图与进度跟踪 |
+
+    ### 📂 数据说明
+
+    系统通过 Excel 文件管理数据，支持页面内上传更新。
+    各页面上传的数据会保存到对应文件，刷新后仍然有效。
+
+    ### 💡 使用提示
+
+    - 使用侧边栏 **刷新数据** 按钮可清除缓存并重新加载
+    - 各页面的筛选器支持联动筛选
+    - 图表支持点击交互（柱状图点击查看明细）
+    - 手机端自动适配屏幕宽度
+    """)
+
+    st.markdown("---")
+    st.caption("© 2026 产销协调系统 · Powered by Streamlit & Plotly")
